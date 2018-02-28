@@ -71,21 +71,25 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		res.Length = resp.ContentLength
 		data, err = json.Marshal(res)
 		if err != nil {
-			log.Fatal("Сбой маршалинга")
+			http.Error(w, "Error", http.StatusInternalServerError)
+			return
 		}
 	case "POST":
 		t, err := json.Marshal(result.Body)
 		if err != nil {
-			log.Fatal("Сбой маршалинга")
+			http.Error(w, "Error", http.StatusInternalServerError)
+			return
 		}
 		req, err := http.NewRequest("POST", result.Url, bytes.NewBuffer(t))
 		if err != nil {
-			log.Fatal("Error in make post request", err)
+			http.Error(w, "Error", http.StatusInternalServerError)
+			return
 		}
 		req.Header.Set("Content-Type", result.ContentType)
 		resp, err := client.Do(req)
 		if err != nil {
-			log.Fatal("Error in send request", err)
+			http.Error(w, "Error", http.StatusInternalServerError)
+			return
 		}
 
 		var res ResponseStruct
