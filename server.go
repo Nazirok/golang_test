@@ -24,12 +24,22 @@ type ResponseStruct struct {
 	Length  int64
 }
 
+type Issue struct {
+	Client *http.Client
+	Req *http.Request
+	ClientResp http.ResponseWriter
+	Result ClientBody
+	Ch chan []byte
+}
 type database map[int]ClientBody
 
 var db = database{}
 var id int = 0
+var issues = make(chan Issue)
+//var body = make(chan []byte)
 
 func main() {
+	go worker()
 	http.HandleFunc("/requests", db.clientRequests)
 	http.HandleFunc("/send", handler)
 	http.HandleFunc("/request", db.clientRequest)
@@ -37,8 +47,32 @@ func main() {
 	log.Fatal(http.ListenAndServe("localhost:8000", nil))
 }
 
+func worker() {
+	for issue := range issues {
+		go func(iss Issue){
+			resp, err := iss.Client.Do(iss.Req)
+			defer resp.Body.Close()
+			if err != nil {
+				http.Error(issue.ClientResp, "Error during request", http.StatusInternalServerError)
+			}
+			var res ResponseStruct
+			id += 1
+			res.Headers = resp.Header
+			res.Id = id
+			res.Status = resp.StatusCode
+			res.Length = resp.ContentLength
+			data, err := json.Marshal(res)
+			if err != nil {
+				http.Error(iss.ClientResp, "Internal error", http.StatusInternalServerError)
+			}
+			issue.Ch <- data
+			//body <- data
+		}(issue)
+
+	}
+}
+
 func handler(w http.ResponseWriter, r *http.Request) {
-	var data []byte
 	var result ClientBody
 	temp, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -50,21 +84,12 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	client := &http.Client{}
+	req := &http.Request{}
 	switch result.Method {
 	case "GET":
-		req, err := http.NewRequest("", result.Url, nil)
+		req, err = http.NewRequest("", result.Url, nil)
 		if err != nil {
 			http.Error(w, "Internal error during make request", http.StatusInternalServerError)
-			return
-		}
-		resp, err := client.Do(req)
-		defer resp.Body.Close()
-		if err != nil {
-			http.Error(w, "Error during request", http.StatusInternalServerError)
-		}
-		data, err = RespBody(resp)
-		if err != nil {
-			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
 	case "POST":
@@ -73,45 +98,26 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Error", http.StatusInternalServerError)
 			return
 		}
-		req, err := http.NewRequest("POST", result.Url, bytes.NewBuffer(t))
+		req, err = http.NewRequest("POST", result.Url, bytes.NewBuffer(t))
 		if err != nil {
 			http.Error(w, "Error", http.StatusInternalServerError)
 			return
 		}
 		req.Header.Set("Content-Type", result.ContentType)
-		resp, err := client.Do(req)
-		if err != nil {
-			http.Error(w, "Error", http.StatusInternalServerError)
-			return
-		}
-		data, err = RespBody(resp)
-		if err != nil {
-			http.Error(w, "Internal error", http.StatusInternalServerError)
-			return
-		}
 	default:
 		http.Error(w, "Wrong method in body", http.StatusMethodNotAllowed)
 		return
 	}
+	ch := make(chan []byte)
+	j := Issue{client, req, w, result, ch}
+	issues <- j
+	//data := <- body
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write(data)
+	w.Write(<-ch)
 	db[id] = result
 }
 
-func RespBody(resp *http.Response) ([]byte, error) {
-	var res ResponseStruct
-	id += 1
-	res.Headers = resp.Header
-	res.Id = id
-	res.Status = resp.StatusCode
-	res.Length = resp.ContentLength
-	data, err := json.Marshal(res)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
-}
 
 func (db database) clientRequests(w http.ResponseWriter, req *http.Request) {
 	// метод выдает все созраненные просьбы
