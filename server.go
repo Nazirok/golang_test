@@ -62,16 +62,9 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			http.Error(w, "Error during request", http.StatusInternalServerError)
 		}
-
-		var res ResponseStruct
-		id += 1
-		res.Headers = resp.Header
-		res.Id = id
-		res.Status = resp.StatusCode
-		res.Length = resp.ContentLength
-		data, err = json.Marshal(res)
+		data, err = RespBody(resp)
 		if err != nil {
-			http.Error(w, "Error", http.StatusInternalServerError)
+			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
 	case "POST":
@@ -91,16 +84,10 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Error", http.StatusInternalServerError)
 			return
 		}
-
-		var res ResponseStruct
-		id += 1
-		res.Headers = resp.Header
-		res.Id = id
-		res.Status = resp.StatusCode
-		res.Length = resp.ContentLength
-		data, err = json.Marshal(res)
+		data, err = RespBody(resp)
 		if err != nil {
-			log.Fatal("Сбой маршалинга")
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
 		}
 	default:
 		http.Error(w, "Wrong method in body", http.StatusMethodNotAllowed)
@@ -110,6 +97,20 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write(data)
 	db[id] = result
+}
+
+func RespBody(resp *http.Response) ([]byte, error) {
+	var res ResponseStruct
+	id += 1
+	res.Headers = resp.Header
+	res.Id = id
+	res.Status = resp.StatusCode
+	res.Length = resp.ContentLength
+	data, err := json.Marshal(res)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
 }
 
 func (db database) clientRequests(w http.ResponseWriter, req *http.Request) {
