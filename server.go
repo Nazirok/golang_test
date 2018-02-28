@@ -113,6 +113,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (db database) clientRequests(w http.ResponseWriter, req *http.Request) {
+	// метод выдает все созраненные просьбы
 	dat, err := json.Marshal(db)
 	if err != nil {
 		log.Fatal("Сбой маршалинга")
@@ -124,6 +125,7 @@ func (db database) clientRequests(w http.ResponseWriter, req *http.Request) {
 }
 
 func (db database) clientRequest(w http.ResponseWriter, req *http.Request) {
+	//метод выдает информацию по просьбе по id
 	item := req.URL.Query().Get("id")
 	id, _ = strconv.Atoi(item)
 	request, ok := db[id]
@@ -137,6 +139,7 @@ func (db database) clientRequest(w http.ResponseWriter, req *http.Request) {
 }
 
 func deleteRequest(w http.ResponseWriter, req *http.Request) {
+	// функция для удаления просьбы
 	item := req.URL.Query().Get("id")
 	id, _ = strconv.Atoi(item)
 	delete(db, id)
