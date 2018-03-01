@@ -26,7 +26,7 @@ type ResponseStruct struct {
 }
 
 type ForBd struct {
-	Id int
+	Id     int
 	Result ClientBody
 }
 
