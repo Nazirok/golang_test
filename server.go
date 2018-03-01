@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"sync"
 )
 
 type ClientBody struct {
@@ -24,12 +25,20 @@ type ResponseStruct struct {
 	Length  int64
 }
 
+type ForBd struct {
+	Id int
+	Result ClientBody
+}
+
 type database map[int]ClientBody
 
 var db = database{}
 var id int = 0
+var mu sync.Mutex
+var reschan = make(chan ForBd)
 
 func main() {
+	go SaveInBd()
 	http.HandleFunc("/requests", db.clientRequests)
 	http.HandleFunc("/send", handler)
 	http.HandleFunc("/request", db.clientRequest)
@@ -37,8 +46,13 @@ func main() {
 	log.Fatal(http.ListenAndServe("localhost:8000", nil))
 }
 
+func SaveInBd() {
+	for item := range reschan {
+		db[item.Id] = item.Result
+	}
+}
+
 func handler(w http.ResponseWriter, r *http.Request) {
-	var data []byte
 	var result ClientBody
 	temp, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -50,6 +64,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	client := &http.Client{}
+	resp := &http.Response{}
 	switch result.Method {
 	case "GET":
 		req, err := http.NewRequest("", result.Url, nil)
@@ -57,16 +72,12 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Internal error during make request", http.StatusInternalServerError)
 			return
 		}
-		resp, err := client.Do(req)
+		resp, err = client.Do(req)
 		defer resp.Body.Close()
 		if err != nil {
 			http.Error(w, "Error during request", http.StatusInternalServerError)
 		}
-		data, err = RespBody(resp)
-		if err != nil {
-			http.Error(w, "Internal error", http.StatusInternalServerError)
-			return
-		}
+
 	case "POST":
 		t, err := json.Marshal(result.Body)
 		if err != nil {
@@ -79,38 +90,40 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		req.Header.Set("Content-Type", result.ContentType)
-		resp, err := client.Do(req)
+		resp, err = client.Do(req)
 		if err != nil {
 			http.Error(w, "Error", http.StatusInternalServerError)
-			return
-		}
-		data, err = RespBody(resp)
-		if err != nil {
-			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
 	default:
 		http.Error(w, "Wrong method in body", http.StatusMethodNotAllowed)
 		return
 	}
+	data, req_id, err := RespBody(resp)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(data)
-	db[id] = result
+	reschan <- ForBd{req_id, result}
 }
 
-func RespBody(resp *http.Response) ([]byte, error) {
+func RespBody(resp *http.Response) ([]byte, int, error) {
 	var res ResponseStruct
+	mu.Lock()
 	id += 1
-	res.Headers = resp.Header
 	res.Id = id
+	mu.Unlock()
+	res.Headers = resp.Header
 	res.Status = resp.StatusCode
 	res.Length = resp.ContentLength
 	data, err := json.Marshal(res)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	return data, nil
+	return data, res.Id, nil
 }
 
 func (db database) clientRequests(w http.ResponseWriter, req *http.Request) {
@@ -128,23 +141,25 @@ func (db database) clientRequests(w http.ResponseWriter, req *http.Request) {
 func (db database) clientRequest(w http.ResponseWriter, req *http.Request) {
 	//метод выдает информацию по просьбе по id
 	item := req.URL.Query().Get("id")
-	id, _ = strconv.Atoi(item)
-	request, ok := db[id]
+	tempid, _ := strconv.Atoi(item)
+	request, ok := db[tempid]
 	if !ok {
 		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprintf(w, "no such request with id: %d\n", id)
+		fmt.Fprintf(w, "no such request with id: %d\n", tempid)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, fmt.Sprintf("Request id: %d, Method: %s, Url: %s \n", id, request.Method, request.Url))
+	fmt.Fprintf(w, fmt.Sprintf("Request id: %d, Method: %s, Url: %s \n", tempid, request.Method, request.Url))
 }
 
 func deleteRequest(w http.ResponseWriter, req *http.Request) {
 	// функция для удаления просьбы
 	item := req.URL.Query().Get("id")
-	id, _ = strconv.Atoi(item)
-	delete(db, id)
-	_, ok := db[id]
+	tempid, _ := strconv.Atoi(item)
+	mu.Lock()
+	delete(db, tempid)
+	_, ok := db[tempid]
+	mu.Unlock()
 	if ok {
 		http.Error(w, "request not deleted", http.StatusInternalServerError)
 		return
