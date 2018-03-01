@@ -76,23 +76,24 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		defer resp.Body.Close()
 		if err != nil {
 			http.Error(w, "Error during request", http.StatusInternalServerError)
+			return
 		}
 
 	case "POST":
 		t, err := json.Marshal(result.Body)
 		if err != nil {
-			http.Error(w, "Error", http.StatusInternalServerError)
+			http.Error(w, "Error in body", http.StatusBadRequest)
 			return
 		}
 		req, err := http.NewRequest("POST", result.Url, bytes.NewBuffer(t))
 		if err != nil {
-			http.Error(w, "Error", http.StatusInternalServerError)
+			http.Error(w, "Error during making request", http.StatusInternalServerError)
 			return
 		}
 		req.Header.Set("Content-Type", result.ContentType)
 		resp, err = client.Do(req)
 		if err != nil {
-			http.Error(w, "Error", http.StatusInternalServerError)
+			http.Error(w, "Error during request", http.StatusInternalServerError)
 			return
 		}
 	default:
@@ -130,8 +131,8 @@ func (db database) clientRequests(w http.ResponseWriter, req *http.Request) {
 	// метод выдает все созраненные просьбы
 	dat, err := json.Marshal(db)
 	if err != nil {
-		log.Fatal("Сбой маршалинга")
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
