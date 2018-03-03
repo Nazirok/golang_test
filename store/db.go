@@ -11,4 +11,6 @@ type DbService interface {
 	GetAllDataJson() ([]byte, error)
 }
 
-
+type DbIdService interface {
+	GenerateUnicId() interface{}
+}

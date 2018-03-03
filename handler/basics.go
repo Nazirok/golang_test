@@ -1,27 +1,24 @@
 package handler
 
-
 import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"github.com/golang_test/requester"
+	"github.com/golang_test/store"
+	"io/ioutil"
 	"net/http"
 	"strconv"
-	"fmt"
-	"github.com/golang_test/store"
-	"bytes"
-	"io/ioutil"
-	"encoding/json"
+	"sync"
+	"time"
 )
-
-var Issues = make(chan RequestToChannel)
 
 type ClientBody struct {
 	Method      string
 	Url         string
 	ContentType string `json:"content-type"`
 	Body        interface{}
-}
-
-type RequestToChannel struct {
-	NewReq *http.Request
 }
 
 type DbWrapper struct {
@@ -66,54 +63,63 @@ func (wrapper *DbWrapper) DeleteRequestForClient(w http.ResponseWriter, req *htt
 	w.WriteHeader(http.StatusOK)
 }
 
+type key string
+type issueId int
 
-func RequestFromClientHandler(w http.ResponseWriter, r *http.Request) {
-		result := ClientBody{}
-		body, err := ioutil.ReadAll(r.Body)
-		if err != nil {
-			http.Error(w, "Internal error", http.StatusInternalServerError)
-			return
-		}
-		if err := json.Unmarshal(body, &result); err != nil {
-			http.Error(w, "Bad request", http.StatusBadRequest)
-			return
-		}
-		switch result.Method {
-		case "GET":
-			req, err := http.NewRequest("", result.Url, nil)
-			if err != nil {
-				http.Error(w, "Internal error during make request", http.StatusInternalServerError)
-				return
-			}
-			Issues <- RequestToChannel{req}
+const issueKey key = "result"
 
-			//resp, err = client.Do(req)
-			//defer resp.Body.Close()
-			//if err != nil {
-			//	http.Error(w, "Error during request", http.StatusInternalServerError)
-			//	return
-			//}
+var id issueId = 0
+var mu sync.Mutex
 
-		case "POST":
-			t, err := json.Marshal(result.Body)
-			if err != nil {
-				http.Error(w, "Error in body", http.StatusBadRequest)
-				return
-			}
-			req, err := http.NewRequest("POST", result.Url, bytes.NewBuffer(t))
-			if err != nil {
-				http.Error(w, "Error during making request", http.StatusInternalServerError)
-				return
-			}
-			req.Header.Set("Content-Type", result.ContentType)
+func (wrapper *DbWrapper) RequestFromClientHandler(w http.ResponseWriter, r *http.Request) {
 
-			//resp, err = client.Do(req)
-			//if err != nil {
-			//	http.Error(w, "Error during request", http.StatusInternalServerError)
-			//	return
-			//}
-		default:
-			http.Error(w, "Wrong method in body", http.StatusMethodNotAllowed)
-			return
-		}
+	var (
+		ctx    context.Context
+		cancel context.CancelFunc
+	)
+	timeout, err := time.ParseDuration("5s")
+	if err == nil {
+		ctx, cancel = context.WithTimeout(context.Background(), timeout)
+	}
+	defer cancel()
+
+	result := ClientBody{}
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+	ctx = context.WithValue(ctx, issueKey, &result)
+	issueResp, err := requester.RequestIssueExecutor(ctx)
+	if err != nil {
+		http.Error(w, "Error during make request to service", http.StatusBadRequest)
+	}
+
+	res := struct {
+		Id      issueId
+		Status  int
+		Headers map[string][]string
+		Length  int64
+	}{
+		Headers: issueResp.Header,
+		Status:  issueResp.StatusCode,
+		Length:  issueResp.ContentLength,
+	}
+	mu.Lock()
+	id += 1
+	res.Id = id
+	mu.Unlock()
+	data, err := json.Marshal(res)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(data)
+	wrapper.Set(id, result)
 }

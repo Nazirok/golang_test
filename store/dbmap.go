@@ -1,9 +1,9 @@
 package store
 
 import (
-	"sync"
 	"encoding/json"
 	"github.com/golang_test/handler"
+	"sync"
 )
 
 type DataMapStore struct {
@@ -34,7 +34,6 @@ func (db *DataMapStore) Get(key int) (handler.ClientBody, bool) {
 	defer db.Unlock()
 	return db.get(key)
 }
-
 
 func (db *DataMapStore) Delete(key int) bool {
 	db.Lock()
