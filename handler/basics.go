@@ -3,7 +3,6 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"github.com/golang_test/requester"
 	"github.com/golang_test/store"
 	"io/ioutil"
@@ -11,14 +10,9 @@ import (
 	"strconv"
 	"sync"
 	"time"
+	"fmt"
 )
 
-type ClientBody struct {
-	Method      string
-	Url         string
-	ContentType string `json:"content-type"`
-	Body        interface{}
-}
 
 type HandlesrWrapper struct {
 	store.DbService
@@ -63,12 +57,11 @@ func (wrapper *HandlesrWrapper) DeleteRequestForClient(w http.ResponseWriter, re
 	w.WriteHeader(http.StatusOK)
 }
 
-type key string
-
-const issueKey key = "result"
+const issueKey = "result"
 
 var id = 0
 var mu sync.Mutex
+
 
 func (wrapper *HandlesrWrapper) RequestFromClientHandler(w http.ResponseWriter, r *http.Request) {
 
@@ -82,7 +75,7 @@ func (wrapper *HandlesrWrapper) RequestFromClientHandler(w http.ResponseWriter, 
 	}
 	defer cancel()
 
-	result := ClientBody{}
+	result := store.ClientBody{}
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -92,10 +85,11 @@ func (wrapper *HandlesrWrapper) RequestFromClientHandler(w http.ResponseWriter, 
 		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
-	ctx = context.WithValue(ctx, issueKey, &result)
+	ctx = context.WithValue(ctx, issueKey, result)
 	issueResp, err := wrapper.RequestIssueExecutor(ctx)
 	if err != nil {
-		http.Error(w, "Error during make request to service", http.StatusBadRequest)
+		http.Error(w, fmt.Sprint(err), http.StatusBadRequest)
+		return
 	}
 
 	res := struct {
@@ -120,5 +114,5 @@ func (wrapper *HandlesrWrapper) RequestFromClientHandler(w http.ResponseWriter, 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(data)
-	wrapper.Set(id, result)
+	wrapper.Set(res.Id, result)
 }

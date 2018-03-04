@@ -1,12 +1,15 @@
 package store
 
-import (
-	"github.com/golang_test/handler"
-)
+type ClientBody struct {
+	Method      string
+	Url         string
+	ContentType string `json:"content-type"`
+	Body        interface{}
+}
 
 type DbService interface {
-	Set(key int, value handler.ClientBody)
+	Set(key int, value ClientBody)
 	Delete(key int) bool
-	Get(key int) (handler.ClientBody, bool)
+	Get(key int) (ClientBody, bool)
 	GetAllDataJson() ([]byte, error)
 }

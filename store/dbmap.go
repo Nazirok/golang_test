@@ -2,42 +2,41 @@ package store
 
 import (
 	"encoding/json"
-	"github.com/golang_test/handler"
 	"sync"
 )
 
 type DataMapStore struct {
-	sync.Mutex
-	data map[int]handler.ClientBody
+	mu sync.Mutex
+	data map[int]ClientBody
 }
 
-func (db *DataMapStore) set(key int, value handler.ClientBody) {
+func (db *DataMapStore) set(key int, value ClientBody) {
 	db.data[key] = value
 }
 
-func (db *DataMapStore) Set(key int, value handler.ClientBody) {
-	db.Lock()
-	defer db.Unlock()
+func (db *DataMapStore) Set(key int, value ClientBody) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
 	db.set(key, value)
 }
 
-func (db *DataMapStore) get(key int) (handler.ClientBody, bool) {
+func (db *DataMapStore) get(key int) (ClientBody, bool) {
 	item, ok := db.data[key]
 	if !ok {
-		return handler.ClientBody{}, ok
+		return ClientBody{}, ok
 	}
 	return item, ok
 }
 
-func (db *DataMapStore) Get(key int) (handler.ClientBody, bool) {
-	db.Lock()
-	defer db.Unlock()
+func (db *DataMapStore) Get(key int) (ClientBody, bool) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
 	return db.get(key)
 }
 
 func (db *DataMapStore) Delete(key int) bool {
-	db.Lock()
-	defer db.Unlock()
+	db.mu.Lock()
+	defer db.mu.Unlock()
 	delete(db.data, key)
 	_, ok := db.data[key]
 	if ok {
@@ -52,4 +51,11 @@ func (db *DataMapStore) GetAllDataJson() ([]byte, error) {
 		return nil, err
 	}
 	return dat, nil
+}
+
+func (db *DataMapStore) InitData () {
+	if db.data == nil {
+		db.mu = sync.Mutex{}
+		db.data = make(map[int]ClientBody)
+	}
 }

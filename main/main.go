@@ -9,7 +9,11 @@ import (
 
 func main() {
 	map_db := &store.DataMapStore{}
+	map_db.InitData()
 	cache := requester.New()
 	wrapper := &handler.HandlesrWrapper{map_db, cache}
 	server.WebServer(wrapper)
 }
+
+
+
