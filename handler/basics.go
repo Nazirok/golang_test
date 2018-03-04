@@ -13,8 +13,6 @@ import (
 	"time"
 )
 
-//var CacheRequester = requester.New()
-
 type ClientBody struct {
 	Method      string
 	Url         string
