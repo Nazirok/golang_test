@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -14,6 +13,8 @@ import (
 	"time"
 )
 
+//var CacheRequester = requester.New()
+
 type ClientBody struct {
 	Method      string
 	Url         string
@@ -21,11 +22,12 @@ type ClientBody struct {
 	Body        interface{}
 }
 
-type DbWrapper struct {
+type HandlesrWrapper struct {
 	store.DbService
+	requester.Requester
 }
 
-func (wrapper *DbWrapper) RequestsForClient(w http.ResponseWriter, req *http.Request) {
+func (wrapper *HandlesrWrapper) RequestsForClient(w http.ResponseWriter, req *http.Request) {
 	// метод выдает все сохрааненные просьбы
 	data, err := wrapper.GetAllDataJson()
 	if err != nil {
@@ -37,7 +39,7 @@ func (wrapper *DbWrapper) RequestsForClient(w http.ResponseWriter, req *http.Req
 	w.Write(data)
 }
 
-func (wrapper *DbWrapper) RequestForClientById(w http.ResponseWriter, req *http.Request) {
+func (wrapper *HandlesrWrapper) RequestForClientById(w http.ResponseWriter, req *http.Request) {
 	//метод выдает информацию по просьбе по id
 	item := req.URL.Query().Get("id")
 	tempid, _ := strconv.Atoi(item)
@@ -51,7 +53,7 @@ func (wrapper *DbWrapper) RequestForClientById(w http.ResponseWriter, req *http.
 	fmt.Fprintf(w, fmt.Sprintf("Request id: %d, Method: %s, Url: %s \n", tempid, request.Method, request.Url))
 }
 
-func (wrapper *DbWrapper) DeleteRequestForClient(w http.ResponseWriter, req *http.Request) {
+func (wrapper *HandlesrWrapper) DeleteRequestForClient(w http.ResponseWriter, req *http.Request) {
 	// функция для удаления просьбы
 	item := req.URL.Query().Get("id")
 	tempid, _ := strconv.Atoi(item)
@@ -64,14 +66,13 @@ func (wrapper *DbWrapper) DeleteRequestForClient(w http.ResponseWriter, req *htt
 }
 
 type key string
-type issueId int
 
 const issueKey key = "result"
 
-var id issueId = 0
+var id = 0
 var mu sync.Mutex
 
-func (wrapper *DbWrapper) RequestFromClientHandler(w http.ResponseWriter, r *http.Request) {
+func (wrapper *HandlesrWrapper) RequestFromClientHandler(w http.ResponseWriter, r *http.Request) {
 
 	var (
 		ctx    context.Context
@@ -94,13 +95,13 @@ func (wrapper *DbWrapper) RequestFromClientHandler(w http.ResponseWriter, r *htt
 		return
 	}
 	ctx = context.WithValue(ctx, issueKey, &result)
-	issueResp, err := requester.RequestIssueExecutor(ctx)
+	issueResp, err := wrapper.RequestIssueExecutor(ctx)
 	if err != nil {
 		http.Error(w, "Error during make request to service", http.StatusBadRequest)
 	}
 
 	res := struct {
-		Id      issueId
+		Id      int
 		Status  int
 		Headers map[string][]string
 		Length  int64
