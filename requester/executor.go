@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
+	"github.com/golang_test/store"
 	"net/http"
 	"sync"
 	"time"
-	"github.com/golang_test/store"
-	"fmt"
 )
 
 type Requester interface {
@@ -77,7 +77,7 @@ func (memo *Cache) RequestIssueExecutor(ctx context.Context) (resp *http.Respons
 	)
 	memo.Lock()
 	e := memo.data[key]
-	if e != nil && time.Now().Sub(e.clear) <= (3 * time.Second) {
+	if e != nil && time.Now().Sub(e.clear) <= (3*time.Second) {
 		memo.Unlock()
 		<-e.ready
 	} else {

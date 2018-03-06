@@ -6,7 +6,7 @@ import (
 )
 
 type DataMapStore struct {
-	mu sync.Mutex
+	mu   sync.Mutex
 	data map[int]ClientBody
 }
 
@@ -53,7 +53,7 @@ func (db *DataMapStore) GetAllDataJson() ([]byte, error) {
 	return dat, nil
 }
 
-func (db *DataMapStore) InitData () {
+func (db *DataMapStore) InitData() {
 	if db.data == nil {
 		db.mu = sync.Mutex{}
 		db.data = make(map[int]ClientBody)

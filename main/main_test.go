@@ -3,10 +3,11 @@ package main
 import (
 	"net/http"
 	//"net/http/httptest"
-	"testing"
 	"bytes"
 	"encoding/json"
+	"testing"
 
+	"fmt"
 	"io/ioutil"
 )
 
@@ -17,24 +18,15 @@ type ReqBody struct {
 	Body        interface{}
 }
 
-type RespBodystruct struct {
-	Id      int
-	Status  int
-	Headers map[string][]string
-	Length  int64
-}
-
-
-
 func TestA(t *testing.T) {
 	go mainFunc()
 }
 
 func TestGetRequests(t *testing.T) {
-    r := []ReqBody{
-    	{Method:"GET", Url: "http://ya.ru"},
-		{Method:"GET", Url: "http://mail.ru"},
-		{Method:"GET", Url: "http://google.com"},
+	r := []ReqBody{
+		{Method: "GET", Url: "http://ya.ru"},
+		{Method: "GET", Url: "http://mail.ru"},
+		{Method: "GET", Url: "http://google.com"},
 	}
 	for _, item := range r {
 		temp, err := json.Marshal(item)
@@ -54,7 +46,7 @@ func TestGetRequests(t *testing.T) {
 }
 
 func TestPostRequests(t *testing.T) {
-	jsn := struct{
+	jsn := struct {
 		A string
 		B string
 	}{
@@ -62,8 +54,8 @@ func TestPostRequests(t *testing.T) {
 		B: "BBBBBBBBBBBBB",
 	}
 	r := []ReqBody{
-		{Method:"POST", Url: "http://localhost:8080", ContentType:"text/html", Body: "dsfdsfsdsdf"},
-		{Method:"POST", Url: "http://localhost:8080", ContentType:"application/json", Body: jsn},
+		{Method: "POST", Url: "http://localhost:8080", ContentType: "text/html", Body: "dsfdsfsdsdf"},
+		{Method: "POST", Url: "http://localhost:8080", ContentType: "application/json", Body: jsn},
 	}
 	for _, item := range r {
 		temp, err := json.Marshal(item)
@@ -82,7 +74,13 @@ func TestPostRequests(t *testing.T) {
 }
 
 func TestRequestsForClient(t *testing.T) {
-	resp, err := http.Get("http://localhost:8000/send/requests")
+	db := make(map[string]struct {
+		Id      int
+		Status  int
+		Headers map[string][]string
+		Length  int64
+	})
+	resp, err := http.Get("http://localhost:8000/requests")
 	if err != nil {
 		t.Errorf("Error in request /send/requests", err)
 	}

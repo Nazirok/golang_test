@@ -18,5 +18,3 @@ func mainFunc() {
 	wrapper := &handler.HandlesrWrapper{map_db, cache}
 	server.WebServer(wrapper)
 }
-
-

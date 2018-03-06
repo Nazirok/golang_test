@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/golang_test/requester"
 	"github.com/golang_test/store"
 	"io/ioutil"
@@ -10,9 +11,7 @@ import (
 	"strconv"
 	"sync"
 	"time"
-	"fmt"
 )
-
 
 type HandlesrWrapper struct {
 	store.DbService
@@ -61,7 +60,6 @@ const issueKey = "result"
 
 var id = 0
 var mu sync.Mutex
-
 
 func (wrapper *HandlesrWrapper) RequestFromClientHandler(w http.ResponseWriter, r *http.Request) {
 
