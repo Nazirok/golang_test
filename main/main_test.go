@@ -2,12 +2,9 @@ package main
 
 import (
 	"net/http"
-	//"net/http/httptest"
 	"bytes"
 	"encoding/json"
 	"testing"
-
-	"fmt"
 	"io/ioutil"
 )
 
