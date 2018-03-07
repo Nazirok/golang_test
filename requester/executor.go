@@ -49,7 +49,7 @@ func RequestDo(result store.ClientBody) (resp *http.Response, err error) {
 		if err != nil {
 			return resp, err
 		}
-		req, err = http.NewRequest("POST", result.Url, bytes.NewBuffer(temp))
+		req, err = http.NewRequest("POST", result.Url, bytes.NewReader(temp))
 		if err != nil {
 			return resp, err
 		}

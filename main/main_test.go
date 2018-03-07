@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"testing"
 	"io/ioutil"
+	"fmt"
+	"strings"
 )
 
 type ReqBody struct {
@@ -60,7 +62,7 @@ func TestPostRequests(t *testing.T) {
 			t.Errorf("Error during marshal request")
 		}
 
-		req, err := http.NewRequest("GET", "http://localhost:8000/send", bytes.NewBuffer(temp))
+		req, err := http.NewRequest("GET", "http://localhost:8000/send", bytes.NewReader(temp))
 		req.Header.Set("Content-Type", item.ContentType)
 		client := &http.Client{}
 		resp, _ := client.Do(req)
@@ -71,19 +73,39 @@ func TestPostRequests(t *testing.T) {
 }
 
 func TestRequestsForClient(t *testing.T) {
-	db := make(map[string]struct {
-		Id      int
-		Status  int
-		Headers map[string][]string
-		Length  int64
-	})
+	db := make(map[string]ReqBody)
 	resp, err := http.Get("http://localhost:8000/requests")
 	if err != nil {
 		t.Errorf("Error in request /send/requests", err)
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Bad status %d", resp.StatusCode)
+	}
 	body, err := ioutil.ReadAll(resp.Body)
 	if err := json.Unmarshal(body, &db); err != nil {
 		t.Error("Error in demarshaling", err)
 	}
+}
+
+func TestRequestForClientById(t *testing.T) {
+	for i:=1; i<4; i++ {
+		url := fmt.Sprintf("http://localhost:8000/request?id=%d", i)
+		resp, err := http.Get(url)
+		if err != nil {
+			t.Errorf("Error in request /send/requests", err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Bad status %d", resp.StatusCode)
+		}
+		body, err := ioutil.ReadAll(resp.Body)
+		s := fmt.Sprintf("%s", body)
+		subs := fmt.Sprintf("Request id: %d,", i)
+		if ok := strings.Contains(s, subs); !ok {
+			t.Errorf("String %s not contain %s", s, subs)
+		}
+
+	}
+
 }
