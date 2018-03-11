@@ -11,7 +11,6 @@ type Requester interface {
 	RequestIssueExecutor(result *store.ClientBody) (resp *http.Response, err error)
 }
 
-
 func RequestIssueExecutor(result *store.ClientBody) (resp *http.Response, err error) {
 	req := &http.Request{}
 	var temp []byte
@@ -30,6 +29,5 @@ func RequestIssueExecutor(result *store.ClientBody) (resp *http.Response, err er
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
 	return resp, err
 }

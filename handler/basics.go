@@ -1,24 +1,29 @@
 package handler
 
 import (
+	"encoding/json"
 	"github.com/golang_test/requester"
 	"github.com/golang_test/store"
 	"github.com/labstack/echo"
 	"net/http"
 	"strconv"
-	"encoding/json"
 )
 
 type HandlesrWrapper struct {
 	store.DbService
-	//requester.Requester
 }
 
 func (wrapper *HandlesrWrapper) RequestsForClient(ctx echo.Context) error {
 	// метод выдает все сохрааненные просьбы
 	ctx.Response().Header().Set(echo.HeaderContentType, echo.MIMEApplicationJSONCharsetUTF8)
 	ctx.Response().WriteHeader(http.StatusOK)
-	return json.NewEncoder(ctx.Response()).Encode(wrapper.GetAllData())
+	allRequests := &struct {
+		Data []*store.DataForDb `json:"Data"`
+	}{}
+	for value := range wrapper.GetAllData() {
+		allRequests.Data = append(allRequests.Data, value)
+	}
+	return json.NewEncoder(ctx.Response()).Encode(allRequests)
 }
 
 func (wrapper *HandlesrWrapper) RequestForClientById(ctx echo.Context) error {
@@ -44,7 +49,6 @@ func (wrapper *HandlesrWrapper) DeleteRequestForClient(ctx echo.Context) error {
 	return nil
 }
 
-
 func (wrapper *HandlesrWrapper) RequestFromClientHandler(ctx echo.Context) error {
 	result := &store.ClientBody{}
 	if err := ctx.Bind(result); err != nil {
@@ -54,16 +58,20 @@ func (wrapper *HandlesrWrapper) RequestFromClientHandler(ctx echo.Context) error
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err)
 	}
-	res := struct {
-		Id      int
-		Status  int
-		Headers map[string][]string
-		Length  int64
-	}{
+	res := &store.ResponseData{
 		Headers: resp.Header,
 		Status:  resp.StatusCode,
 		Length:  resp.ContentLength,
 	}
-	res.Id = wrapper.Set(result)
-	return ctx.JSON(http.StatusOK, res)
+	responseToClient := &store.ResponseToClient{
+		ResponseData: res,
+	}
+
+	dataFoDb := &store.DataForDb{
+		Request:      result,
+		ResponseData: res,
+	}
+
+	responseToClient.Id = wrapper.Set(dataFoDb)
+	return ctx.JSON(http.StatusOK, responseToClient)
 }

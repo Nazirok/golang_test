@@ -1,11 +1,11 @@
 package main
 
 import (
-	"net/http"
 	"bytes"
 	"encoding/json"
-	"testing"
 	"io/ioutil"
+	"net/http"
+	"testing"
 )
 
 type ReqBody struct {
