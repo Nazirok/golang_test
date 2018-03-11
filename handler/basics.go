@@ -1,116 +1,69 @@
 package handler
 
 import (
-	"context"
-	"encoding/json"
-	"fmt"
 	"github.com/golang_test/requester"
 	"github.com/golang_test/store"
-	"io/ioutil"
+	"github.com/labstack/echo"
 	"net/http"
 	"strconv"
-	"sync"
-	"time"
+	"encoding/json"
 )
 
 type HandlesrWrapper struct {
 	store.DbService
-	requester.Requester
+	//requester.Requester
 }
 
-func (wrapper *HandlesrWrapper) RequestsForClient(w http.ResponseWriter, req *http.Request) {
+func (wrapper *HandlesrWrapper) RequestsForClient(ctx echo.Context) error {
 	// метод выдает все сохрааненные просьбы
-	data, err := wrapper.GetAllDataJson()
-	if err != nil {
-		http.Error(w, "Error get data from database", http.StatusInternalServerError)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(data)
+	ctx.Response().Header().Set(echo.HeaderContentType, echo.MIMEApplicationJSONCharsetUTF8)
+	ctx.Response().WriteHeader(http.StatusOK)
+	return json.NewEncoder(ctx.Response()).Encode(wrapper.GetAllData())
 }
 
-func (wrapper *HandlesrWrapper) RequestForClientById(w http.ResponseWriter, req *http.Request) {
+func (wrapper *HandlesrWrapper) RequestForClientById(ctx echo.Context) error {
 	//метод выдает информацию по просьбе по id
-	item := req.URL.Query().Get("id")
+	item := ctx.Param("id")
 	tempid, _ := strconv.Atoi(item)
 	request, ok := wrapper.Get(tempid)
 	if !ok {
-		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprintf(w, "no such request with id: %d\n", tempid)
-		return
+		return echo.NewHTTPError(http.StatusNotFound)
 	}
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, fmt.Sprintf("Request id: %d, Method: %s, Url: %s \n", tempid, request.Method, request.Url))
+	return ctx.JSON(http.StatusOK, request)
 }
 
-func (wrapper *HandlesrWrapper) DeleteRequestForClient(w http.ResponseWriter, req *http.Request) {
+func (wrapper *HandlesrWrapper) DeleteRequestForClient(ctx echo.Context) error {
 	// функция для удаления просьбы
-	item := req.URL.Query().Get("id")
+	item := ctx.Param("id")
 	tempid, _ := strconv.Atoi(item)
 	ok := wrapper.Delete(tempid)
 	if !ok {
-		http.Error(w, "request not deleted", http.StatusInternalServerError)
-		return
+		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
-	w.WriteHeader(http.StatusOK)
+	ctx.Response().WriteHeader(http.StatusOK)
+	return nil
 }
 
-const issueKey = "result"
 
-var id = 0
-var mu sync.Mutex
-
-func (wrapper *HandlesrWrapper) RequestFromClientHandler(w http.ResponseWriter, r *http.Request) {
-
-	var (
-		ctx    context.Context
-		cancel context.CancelFunc
-	)
-	timeout, err := time.ParseDuration("5s")
-	if err == nil {
-		ctx, cancel = context.WithTimeout(context.Background(), timeout)
+func (wrapper *HandlesrWrapper) RequestFromClientHandler(ctx echo.Context) error {
+	result := &store.ClientBody{}
+	if err := ctx.Bind(result); err != nil {
+		return err
 	}
-	defer cancel()
-
-	result := store.ClientBody{}
-	body, err := ioutil.ReadAll(r.Body)
+	resp, err := requester.RequestIssueExecutor(result)
 	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
+		return echo.NewHTTPError(http.StatusInternalServerError, err)
 	}
-	if err := json.Unmarshal(body, &result); err != nil {
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-	ctx = context.WithValue(ctx, issueKey, result)
-	issueResp, err := wrapper.RequestIssueExecutor(ctx)
-	if err != nil {
-		http.Error(w, fmt.Sprint(err), http.StatusBadRequest)
-		return
-	}
-
 	res := struct {
 		Id      int
 		Status  int
 		Headers map[string][]string
 		Length  int64
 	}{
-		Headers: issueResp.Header,
-		Status:  issueResp.StatusCode,
-		Length:  issueResp.ContentLength,
+		Headers: resp.Header,
+		Status:  resp.StatusCode,
+		Length:  resp.ContentLength,
 	}
-	mu.Lock()
-	id += 1
-	res.Id = id
-	mu.Unlock()
-	data, err := json.Marshal(res)
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(data)
-	wrapper.Set(res.Id, result)
+	res.Id = wrapper.Set(result)
+	return ctx.JSON(http.StatusOK, res)
 }

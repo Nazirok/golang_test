@@ -8,8 +8,9 @@ type ClientBody struct {
 }
 
 type DbService interface {
-	Set(key int, value ClientBody)
+	Set(value *ClientBody) int
 	Delete(key int) bool
-	Get(key int) (ClientBody, bool)
-	GetAllDataJson() ([]byte, error)
+	Get(key int) (*ClientBody, bool)
+	GetAllData() (map[int]*ClientBody)
 }
+
