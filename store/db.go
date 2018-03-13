@@ -19,7 +19,7 @@ type ResponseToClient struct {
 }
 
 type DataForDb struct {
-	Id           int           `json:"id"`
+	Id           int           `json:"Id"`
 	Request      *ClientBody   `json:"Request"`
 	ResponseData *ResponseData `json:"ResponseData"`
 }

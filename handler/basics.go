@@ -41,6 +41,9 @@ func (wrapper *HandlesrWrapper) DeleteRequestForClient(ctx echo.Context) error {
 	// функция для удаления просьбы
 	item := ctx.Param("id")
 	tempid, _ := strconv.Atoi(item)
+	if _, ok := wrapper.Get(tempid); !ok {
+		return echo.NewHTTPError(http.StatusNotFound)
+	}
 	ok := wrapper.Delete(tempid)
 	if !ok {
 		return echo.NewHTTPError(http.StatusInternalServerError)
@@ -56,7 +59,7 @@ func (wrapper *HandlesrWrapper) RequestFromClientHandler(ctx echo.Context) error
 	}
 	resp, err := requester.RequestIssueExecutor(result)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err)
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	res := &store.ResponseData{
 		Headers: resp.Header,

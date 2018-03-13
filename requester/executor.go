@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"github.com/golang_test/store"
 	"net/http"
+	"time"
 )
 
 type Requester interface {
@@ -24,7 +25,16 @@ func RequestIssueExecutor(result *store.ClientBody) (resp *http.Response, err er
 	if err != nil {
 		return nil, err
 	}
-	client := &http.Client{}
+	if result.Headers != nil {
+		for k, v := range result.Headers {
+			for _, item := range v {
+				req.Header.Set(k, item)
+			}
+		}
+	}
+	client := &http.Client{
+		Timeout: time.Second * 10,
+	}
 	resp, err = client.Do(req)
 	if err != nil {
 		return nil, err

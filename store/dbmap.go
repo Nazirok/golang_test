@@ -6,7 +6,7 @@ import (
 
 type DataMapStore struct {
 	id   int
-	mu   sync.Mutex
+	mu   sync.RWMutex
 	data map[int]*DataForDb
 }
 
@@ -33,8 +33,8 @@ func (db *DataMapStore) get(key int) (*DataForDb, bool) {
 }
 
 func (db *DataMapStore) Get(key int) (*DataForDb, bool) {
-	db.mu.Lock()
-	defer db.mu.Unlock()
+	db.mu.RLock()
+	defer db.mu.RUnlock()
 	return db.get(key)
 }
 
@@ -52,8 +52,8 @@ func (db *DataMapStore) Delete(key int) bool {
 func (db *DataMapStore) GetAllData() chan *DataForDb {
 	out := make(chan *DataForDb)
 	go func() {
-		db.mu.Lock()
-		defer db.mu.Unlock()
+		db.mu.RLock()
+		defer db.mu.RUnlock()
 		for _, value := range db.data {
 			out <- value
 		}
