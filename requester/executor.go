@@ -39,5 +39,6 @@ func RequestIssueExecutor(result *store.ClientBody) (resp *http.Response, err er
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 	return resp, err
 }
