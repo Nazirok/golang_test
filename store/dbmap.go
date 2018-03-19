@@ -49,16 +49,13 @@ func (db *DataMapStore) Delete(key int) bool {
 	return true
 }
 
-func (db *DataMapStore) GetAllData() chan *DataForDb {
-	out := make(chan *DataForDb)
-	go func() {
-		db.mu.RLock()
-		defer db.mu.RUnlock()
-		for _, value := range db.data {
-			out <- value
-		}
-		close(out)
-	}()
+func (db *DataMapStore) GetAllData() []*DataForDb {
+	out := make([]*DataForDb, 0, len(db.data))
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+	for _, value := range db.data {
+		out = append(out, value)
+	}
 	return out
 }
 

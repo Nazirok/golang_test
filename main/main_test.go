@@ -40,7 +40,7 @@ func TestPostRequestApi(t *testing.T) {
 			t.Errorf("Error during marshal request")
 		}
 
-		req, err := http.NewRequest("POST", "http://localhost:8000/request", bytes.NewBuffer(temp))
+		req, err := http.NewRequest("POST", "http://localhost:8000/requests", bytes.NewBuffer(temp))
 		req.Header.Set("Content-Type", "application/json")
 		client := &http.Client{}
 		resp, _ := client.Do(req)
@@ -76,7 +76,7 @@ func TestPostRequests(t *testing.T) {
 			t.Errorf("Error during marshal request")
 		}
 
-		req, err := http.NewRequest("POST", "http://localhost:8000/request", bytes.NewBuffer(temp))
+		req, err := http.NewRequest("POST", "http://localhost:8000/requests", bytes.NewBuffer(temp))
 		req.Header.Set("Content-Type", "application/json")
 		client := &http.Client{}
 		resp, _ := client.Do(req)
@@ -115,10 +115,10 @@ func TestRequestForLcientById(t *testing.T) {
 		ResponseData interface{} `json:"ResponseData"`
 	}{}
 	for i := 1; i <= 3; i++ {
-		url := fmt.Sprintf("http://localhost:8000/request/%d", i)
+		url := fmt.Sprintf("http://localhost:8000/requests/%d", i)
 		resp, err := http.Get(url)
 		if err != nil {
-			t.Errorf("Error in GET /request/:id", err)
+			t.Errorf("Error in GET /requests/:id", err)
 		}
 		if resp.StatusCode != http.StatusOK {
 			t.Errorf("Bad status during get item %d", resp.StatusCode)
@@ -133,14 +133,14 @@ func TestRequestForLcientById(t *testing.T) {
 
 func TestDeleteRequest(t *testing.T) {
 	for i := 1; i <= 3; i++ {
-		url := fmt.Sprintf("http://localhost:8000/request/%d", i)
+		url := fmt.Sprintf("http://localhost:8000/requests/%d", i)
 		req, err := http.NewRequest("DELETE", url, nil)
 		client := &http.Client{
 			Timeout: time.Second * 3,
 		}
 		resp, err := client.Do(req)
 		if err != nil {
-			t.Errorf("Error in DELETE /request/:id", err)
+			t.Errorf("Error in DELETE /requests/:id", err)
 		}
 		if resp.StatusCode != http.StatusOK {
 			t.Errorf("Bad status during delete %d", resp.StatusCode)

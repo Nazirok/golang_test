@@ -9,10 +9,12 @@ import (
 )
 
 type Requester interface {
-	RequestIssueExecutor(result *store.ClientBody) (resp *http.Response, err error)
+	RequestIssueExecutor(result *store.ClientBody) (resp *store.ResponseData, err error)
 }
 
-func RequestIssueExecutor(result *store.ClientBody) (resp *http.Response, err error) {
+var client = &http.Client{Timeout: time.Second * 10}
+
+func RequestIssueExecutor(result *store.ClientBody) (resp *store.ResponseData, err error) {
 	req := &http.Request{}
 	var temp []byte
 	if result.Body != nil {
@@ -25,20 +27,20 @@ func RequestIssueExecutor(result *store.ClientBody) (resp *http.Response, err er
 	if err != nil {
 		return nil, err
 	}
-	if result.Headers != nil {
-		for k, v := range result.Headers {
-			for _, item := range v {
-				req.Header.Set(k, item)
-			}
+	for k, v := range result.Headers {
+		for _, item := range v {
+			req.Header.Set(k, item)
 		}
 	}
-	client := &http.Client{
-		Timeout: time.Second * 10,
-	}
-	resp, err = client.Do(req)
+	res, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer res.Body.Close()
+	resp = &store.ResponseData{
+		Headers: res.Header,
+		Status:  res.StatusCode,
+		Length:  res.ContentLength,
+	}
 	return resp, err
 }

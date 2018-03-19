@@ -5,12 +5,22 @@ import (
 	"github.com/labstack/echo"
 )
 
-func WebServer(wrapper *handler.HandlesrWrapper) {
-	server := echo.New()
-	server.Use()
-	server.GET("/request/:id", wrapper.RequestForClientById)
-	server.GET("/requests", wrapper.RequestsForClient)
-	server.POST("/request", wrapper.RequestFromClientHandler)
-	server.DELETE("/request/:id", wrapper.DeleteRequestForClient)
-	server.Logger.Fatal(server.Start(":8000"))
+type WebServer struct {
+	e *echo.Echo
+}
+
+func (wb *WebServer) InitHandlers(w *handler.HandlersWrapper) {
+	wb.e.Use()
+	wb.e.GET("/requests/:id", w.RequestForClientById)
+	wb.e.GET("/requests", w.RequestsForClient)
+	wb.e.POST("/requests", w.RequestFromClientHandler)
+	wb.e.DELETE("/requests/:id", w.DeleteRequestForClient)
+}
+
+func (wb *WebServer) StartServer() {
+	wb.e.Logger.Fatal(wb.e.Start(":8000"))
+}
+
+func InitWebServer () *WebServer {
+	return &WebServer{echo.New()}
 }

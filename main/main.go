@@ -11,7 +11,9 @@ func main() {
 }
 
 func mainFunc() {
-	map_db := store.NewDataMapStore()
-	wrapper := &handler.HandlesrWrapper{map_db}
-	server.WebServer(wrapper)
+	mapDb := store.NewDataMapStore()
+	w := &handler.HandlersWrapper{mapDb}
+	s := server.InitWebServer()
+	s.InitHandlers(w)
+	s.StartServer()
 }
