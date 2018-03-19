@@ -19,6 +19,10 @@ type ReqBody struct {
 }
 
 func TestMain(m *testing.M) {
+	// Для тестов не обязательно запускать веб-сервер
+	// Можно отдельно проинициализировать движок echo и через него вызывать нужные хэндлеры с полным циклом обработки запроса, но без запуска сервера
+	// Пример https://bitbucket.org/Axxonsoft/axxonendpoint/src/393d8a7de0d350ae13e863c145c1855217da2a86/request/request.go?at=master&fileviewer=file-view-default#request.go-105
+	// Кстати, посмотри там фреймворк для выполнения запросов. Аналогичный мы и в облаке используем. Удобная штука получается.
 	go mainFunc()
 	time.Sleep(100 * time.Millisecond)
 	os.Exit(m.Run())

@@ -28,5 +28,5 @@ type DbService interface {
 	Set(value *DataForDb) int
 	Delete(key int) bool
 	Get(key int) (*DataForDb, bool)
-	GetAllData() chan *DataForDb
+	GetAllData() chan *DataForDb // канал тут явно не в тему, почему не слайс просто?
 }
