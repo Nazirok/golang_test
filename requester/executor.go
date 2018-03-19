@@ -9,6 +9,7 @@ import (
 )
 
 type Requester interface {
+	// Лучше сразу ResponseData возвращать, чтобы скрыть детали реализации внутри метода. Вдруг там не через http можно будет запросы делать, а через что-нибудь другое.
 	RequestIssueExecutor(result *store.ClientBody) (resp *http.Response, err error)
 }
 
@@ -25,6 +26,7 @@ func RequestIssueExecutor(result *store.ClientBody) (resp *http.Response, err er
 	if err != nil {
 		return nil, err
 	}
+	// вроде проверка на nil тут не нужна
 	if result.Headers != nil {
 		for k, v := range result.Headers {
 			for _, item := range v {
@@ -32,6 +34,7 @@ func RequestIssueExecutor(result *store.ClientBody) (resp *http.Response, err er
 			}
 		}
 	}
+	// каждый раз новый client не обязательно создавать, он потокобезопасный, поэтому одного экземпляра вполне достаточно
 	client := &http.Client{
 		Timeout: time.Second * 10,
 	}

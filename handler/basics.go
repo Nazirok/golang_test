@@ -9,10 +9,12 @@ import (
 	"strconv"
 )
 
+// Опечатка
 type HandlesrWrapper struct {
 	store.DbService
 }
 
+// обычно короче называют, не wrapper, а w например
 func (wrapper *HandlesrWrapper) RequestsForClient(ctx echo.Context) error {
 	// метод выдает все сохрааненные просьбы
 	ctx.Response().Header().Set(echo.HeaderContentType, echo.MIMEApplicationJSONCharsetUTF8)
@@ -23,6 +25,7 @@ func (wrapper *HandlesrWrapper) RequestsForClient(ctx echo.Context) error {
 	for value := range wrapper.GetAllData() {
 		allRequests.Data = append(allRequests.Data, value)
 	}
+	// А почему тут не ctx.JSON(http.StatusOK, allRequests)?
 	return json.NewEncoder(ctx.Response()).Encode(allRequests)
 }
 

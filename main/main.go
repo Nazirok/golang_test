@@ -11,6 +11,7 @@ func main() {
 }
 
 func mainFunc() {
+	// В go переменные в camelCase называют
 	map_db := store.NewDataMapStore()
 	wrapper := &handler.HandlesrWrapper{map_db}
 	server.WebServer(wrapper)
