@@ -3,12 +3,14 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
-	"io/ioutil"
 	"net/http"
-	"os"
 	"testing"
-	"time"
+	"github.com/labstack/echo"
+	"github.com/golang_test/handler"
+	"github.com/golang_test/store"
+	"net/http/httptest"
+	"io/ioutil"
+	"fmt"
 )
 
 type ReqBody struct {
@@ -18,13 +20,11 @@ type ReqBody struct {
 	Body    interface{}         `json:"Body"`
 }
 
-func TestMain(m *testing.M) {
-	go mainFunc()
-	time.Sleep(100 * time.Millisecond)
-	os.Exit(m.Run())
-}
+var mapDb = store.NewDataMapStore()
+var w = &handler.HandlersWrapper{mapDb}
 
-func TestPostRequestApi(t *testing.T) {
+
+func Test_RequestFromClientHandlerGet(t *testing.T) {
 	headers := map[string][]string{
 		"Connection": {"Keep-Alive"},
 	}
@@ -34,24 +34,25 @@ func TestPostRequestApi(t *testing.T) {
 		{Method: "GET", Url: "http://mail.ru"},
 		{Method: "GET", Url: "http://google.com"},
 	}
+	e := echo.New()
 	for _, item := range r {
 		temp, err := json.Marshal(item)
 		if err != nil {
 			t.Errorf("Error during marshal request")
 		}
-
-		req, err := http.NewRequest("POST", "http://localhost:8000/requests", bytes.NewBuffer(temp))
+		req := httptest.NewRequest("POST", "http://localhost:8000/requests", bytes.NewBuffer(temp))
 		req.Header.Set("Content-Type", "application/json")
-		client := &http.Client{}
-		resp, _ := client.Do(req)
-		if resp.StatusCode != http.StatusOK {
-			t.Errorf("Bad status during test GET requests %d", resp.StatusCode)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		w.RequestFromClientHandler(c)
+		if rec.Code != http.StatusOK {
+			t.Errorf("Bad status during test GET requests %d", rec.Code)
 		}
 	}
 
 }
 
-func TestPostRequests(t *testing.T) {
+func Test_RequestFromClientHandlerPost(t *testing.T) {
 	headers_1 := map[string][]string{
 		"Connection":   {"Keep-Alive"},
 		"Content-Type": {"text/html"},
@@ -70,23 +71,24 @@ func TestPostRequests(t *testing.T) {
 		{Method: "POST", Url: "http://localhost:8080", Headers: headers_1, Body: "dsfdsfsdsdf"},
 		{Method: "POST", Url: "http://localhost:8080", Headers: headers_2, Body: jsn},
 	}
+	e := echo.New()
 	for _, item := range r {
 		temp, err := json.Marshal(item)
 		if err != nil {
 			t.Errorf("Error during marshal request")
 		}
-
-		req, err := http.NewRequest("POST", "http://localhost:8000/requests", bytes.NewBuffer(temp))
+		req := httptest.NewRequest("POST", "http://localhost:8000/requests", bytes.NewBuffer(temp))
 		req.Header.Set("Content-Type", "application/json")
-		client := &http.Client{}
-		resp, _ := client.Do(req)
-		if resp.StatusCode != http.StatusOK {
-			t.Errorf("Bad status during test POST requests %d", resp.StatusCode)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		w.RequestFromClientHandler(c)
+		if rec.Code != http.StatusOK {
+			t.Errorf("Bad status during test POST requests %d", rec.Code)
 		}
 	}
 }
 
-func TestRequestsForClient(t *testing.T) {
+func Test_RequestsForClient(t *testing.T) {
 	db := struct {
 		Data []struct {
 			Id           int         `json:"id"`
@@ -94,61 +96,69 @@ func TestRequestsForClient(t *testing.T) {
 			ResponseData interface{} `json:"ResponseData"`
 		}
 	}{}
-	resp, err := http.Get("http://localhost:8000/requests")
+	e := echo.New()
+	req := httptest.NewRequest("GET", "http://localhost:8000/requests", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	w.RequestsForClient(c)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("Bad status during get elements %d", rec.Code)
+	}
+
+	body, err := ioutil.ReadAll(rec.Body)
 	if err != nil {
-		t.Errorf("Error in GET /requests", err)
+		t.Error("error in reading body", err)
 	}
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("Bad status during get elements %d", resp.StatusCode)
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err := json.Unmarshal(body, &db); err != nil {
-		t.Error("Error in demarshaling", err)
+	if err = json.Unmarshal(body, &db); err != nil {
+		t.Error("error in demarshaling", err)
 	}
 }
 
-func TestRequestForLcientById(t *testing.T) {
+func Test_RequestForClientById(t *testing.T) {
 	db := struct {
 		Id           int         `json:"id"`
 		Request      interface{} `json:"Request"`
 		ResponseData interface{} `json:"ResponseData"`
 	}{}
+	e := echo.New()
 	for i := 1; i <= 3; i++ {
-		url := fmt.Sprintf("http://localhost:8000/requests/%d", i)
-		resp, err := http.Get(url)
+		req := httptest.NewRequest(echo.GET, "/", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPath("/requests/:id")
+		c.SetParamNames("id")
+		c.SetParamValues(fmt.Sprint(i))
+		w.RequestForClientById(c)
+		if rec.Code != http.StatusOK {
+			t.Errorf("bad status during get item %d", rec.Code)
+		}
+		body, err := ioutil.ReadAll(rec.Body)
 		if err != nil {
-			t.Errorf("Error in GET /requests/:id", err)
+			t.Error("error in reading body", err)
 		}
-		if resp.StatusCode != http.StatusOK {
-			t.Errorf("Bad status during get item %d", resp.StatusCode)
-		}
-		defer resp.Body.Close()
-		body, err := ioutil.ReadAll(resp.Body)
-		if err := json.Unmarshal(body, &db); err != nil {
-			t.Error("Error in demarshaling", err)
+		if err = json.Unmarshal(body, &db); err != nil {
+			t.Error("error in demarshaling", err)
 		}
 	}
 }
 
-func TestDeleteRequest(t *testing.T) {
+func Test_DeleteRequestForClient(t *testing.T) {
+	e := echo.New()
 	for i := 1; i <= 3; i++ {
-		url := fmt.Sprintf("http://localhost:8000/requests/%d", i)
-		req, err := http.NewRequest("DELETE", url, nil)
-		client := &http.Client{
-			Timeout: time.Second * 3,
+		req := httptest.NewRequest("DELETE", "/", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPath("/requests/:id")
+		c.SetParamNames("id")
+		c.SetParamValues(fmt.Sprint(i))
+		w.DeleteRequestForClient(c)
+		if rec.Code != http.StatusOK {
+			t.Errorf("bad status during delete %d", rec.Code)
 		}
-		resp, err := client.Do(req)
-		if err != nil {
-			t.Errorf("Error in DELETE /requests/:id", err)
+		r := w.DeleteRequestForClient(c)
+		if r == nil {
+			t.Errorf("Bad status during delete absent item %d", r)
 		}
-		if resp.StatusCode != http.StatusOK {
-			t.Errorf("Bad status during delete %d", resp.StatusCode)
-		}
-		resp, err = client.Do(req)
-		if resp.StatusCode != http.StatusNotFound {
-			t.Errorf("Bad status during delete absent item %d", resp.StatusCode)
-		}
-
 	}
 }
