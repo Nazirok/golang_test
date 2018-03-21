@@ -13,7 +13,7 @@ func main() {
 func mainFunc() {
 	mapDb := store.NewDataMapStore()
 	w := &handler.HandlersWrapper{mapDb}
-	s := server.InitWebServer()
+	s := server.New()
 	s.InitHandlers(w)
 	s.StartServer()
 }

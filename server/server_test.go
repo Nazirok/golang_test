@@ -1,15 +1,16 @@
-package main
+package server
 
 import (
 	"bytes"
 	"encoding/json"
 	"net/http"
 	"testing"
-	"github.com/labstack/echo"
 	"github.com/golang_test/handler"
 	"github.com/golang_test/store"
 	"net/http/httptest"
+	"os"
 	"io/ioutil"
+	"github.com/labstack/echo"
 	"fmt"
 )
 
@@ -20,9 +21,14 @@ type ReqBody struct {
 	Body    interface{}         `json:"Body"`
 }
 
+var s = New()
 var mapDb = store.NewDataMapStore()
 var w = &handler.HandlersWrapper{mapDb}
 
+func TestMain(m *testing.M) {
+	s.InitHandlers(w)
+	os.Exit(m.Run())
+}
 
 func Test_RequestFromClientHandlerGet(t *testing.T) {
 	headers := map[string][]string{
@@ -34,19 +40,17 @@ func Test_RequestFromClientHandlerGet(t *testing.T) {
 		{Method: "GET", Url: "http://mail.ru"},
 		{Method: "GET", Url: "http://google.com"},
 	}
-	e := echo.New()
 	for _, item := range r {
 		temp, err := json.Marshal(item)
 		if err != nil {
-			t.Errorf("Error during marshal request")
+			t.Errorf("error during marshal request")
 		}
-		req := httptest.NewRequest("POST", "http://localhost:8000/requests", bytes.NewBuffer(temp))
+		req := httptest.NewRequest("POST", "/requests", bytes.NewBuffer(temp))
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()
-		c := e.NewContext(req, rec)
-		w.RequestFromClientHandler(c)
+		s.e.ServeHTTP(rec, req)
 		if rec.Code != http.StatusOK {
-			t.Errorf("Bad status during test GET requests %d", rec.Code)
+			t.Errorf("Bad status %d during test GET requests", rec.Code)
 		}
 	}
 
@@ -71,19 +75,17 @@ func Test_RequestFromClientHandlerPost(t *testing.T) {
 		{Method: "POST", Url: "http://localhost:8080", Headers: headers_1, Body: "dsfdsfsdsdf"},
 		{Method: "POST", Url: "http://localhost:8080", Headers: headers_2, Body: jsn},
 	}
-	e := echo.New()
 	for _, item := range r {
 		temp, err := json.Marshal(item)
 		if err != nil {
-			t.Errorf("Error during marshal request")
+			t.Errorf("error during marshal request")
 		}
-		req := httptest.NewRequest("POST", "http://localhost:8000/requests", bytes.NewBuffer(temp))
+		req := httptest.NewRequest("POST", "/requests", bytes.NewBuffer(temp))
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()
-		c := e.NewContext(req, rec)
-		w.RequestFromClientHandler(c)
+		s.e.ServeHTTP(rec, req)
 		if rec.Code != http.StatusOK {
-			t.Errorf("Bad status during test POST requests %d", rec.Code)
+			t.Errorf("bad status %d during test POST requests", rec.Code)
 		}
 	}
 }
@@ -96,14 +98,12 @@ func Test_RequestsForClient(t *testing.T) {
 			ResponseData interface{} `json:"ResponseData"`
 		}
 	}{}
-	e := echo.New()
-	req := httptest.NewRequest("GET", "http://localhost:8000/requests", nil)
+	req := httptest.NewRequest("GET", "/requests", nil)
 	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
-	w.RequestsForClient(c)
+	s.e.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
-		t.Errorf("Bad status during get elements %d", rec.Code)
+		t.Errorf("bad status %d during get elements", rec.Code)
 	}
 
 	body, err := ioutil.ReadAll(rec.Body)
@@ -121,15 +121,11 @@ func Test_RequestForClientById(t *testing.T) {
 		Request      interface{} `json:"Request"`
 		ResponseData interface{} `json:"ResponseData"`
 	}{}
-	e := echo.New()
 	for i := 1; i <= 3; i++ {
-		req := httptest.NewRequest(echo.GET, "/", nil)
+		url := fmt.Sprintf("/requests/%d", i)
+		req := httptest.NewRequest(echo.GET, url, nil)
 		rec := httptest.NewRecorder()
-		c := e.NewContext(req, rec)
-		c.SetPath("/requests/:id")
-		c.SetParamNames("id")
-		c.SetParamValues(fmt.Sprint(i))
-		w.RequestForClientById(c)
+		s.e.ServeHTTP(rec, req)
 		if rec.Code != http.StatusOK {
 			t.Errorf("bad status during get item %d", rec.Code)
 		}
@@ -144,21 +140,19 @@ func Test_RequestForClientById(t *testing.T) {
 }
 
 func Test_DeleteRequestForClient(t *testing.T) {
-	e := echo.New()
 	for i := 1; i <= 3; i++ {
-		req := httptest.NewRequest("DELETE", "/", nil)
+		url := fmt.Sprintf("/requests/%d", i)
+		req := httptest.NewRequest("DELETE", url, nil)
 		rec := httptest.NewRecorder()
-		c := e.NewContext(req, rec)
-		c.SetPath("/requests/:id")
-		c.SetParamNames("id")
-		c.SetParamValues(fmt.Sprint(i))
-		w.DeleteRequestForClient(c)
+		s.e.ServeHTTP(rec, req)
 		if rec.Code != http.StatusOK {
-			t.Errorf("bad status during delete %d", rec.Code)
+			t.Errorf("bad status %d during delete", rec.Code)
 		}
-		r := w.DeleteRequestForClient(c)
-		if r == nil {
-			t.Errorf("Bad status during delete absent item %d", r)
+		req = httptest.NewRequest("DELETE", url, nil)
+		rec = httptest.NewRecorder()
+		s.e.ServeHTTP(rec, req)
+		if rec.Code == http.StatusOK {
+			t.Errorf("bad status %d during delete absent element", rec.Code)
 		}
 	}
 }

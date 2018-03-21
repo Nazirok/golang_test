@@ -66,7 +66,6 @@ func (w *HandlersWrapper) RequestFromClientHandler(ctx echo.Context) error {
 		Request:      result,
 		ResponseData: resp,
 	}
-
 	responseToClient.Id = w.Set(dataFoDb)
 	return ctx.JSON(http.StatusOK, responseToClient)
 }
