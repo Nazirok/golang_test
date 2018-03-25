@@ -3,7 +3,6 @@ package server
 import (
 	"github.com/golang_test/handler"
 	"github.com/labstack/echo"
-	"net/http"
 )
 
 type WebServer struct {
@@ -14,6 +13,7 @@ func (wb *WebServer) InitHandlers(w *handler.HandlersWrapper) {
 	wb.e.Use()
 	wb.e.GET("/requests/:id", w.RequestForClientById)
 	wb.e.GET("/requests", w.RequestsForClient)
+	wb.e.GET("/result/:id", w.CheckResponse)
 	wb.e.POST("/requests", w.RequestFromClientHandler)
 	wb.e.DELETE("/requests/:id", w.DeleteRequestForClient)
 }

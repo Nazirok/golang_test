@@ -24,9 +24,24 @@ type DataForDb struct {
 	ResponseData *ResponseData `json:"ResponseData"`
 }
 
+type Job struct {
+	State   string
+	Request *ClientBody
+	ToClient *ResponseToClient
+}
+
+
 type DbService interface {
 	Set(value *DataForDb) int
 	Delete(key int) bool
 	Get(key int) (*DataForDb, bool)
 	GetAllData() []*DataForDb
+}
+
+
+type JobDbService interface {
+	Set(value *Job) int
+	Delete(key int) bool
+	Get(key int) (*Job, bool)
+	ChangeState(key int, s string) *Job
 }
