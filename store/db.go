@@ -25,9 +25,10 @@ type DataForDb struct {
 }
 
 type Job struct {
-	State   string
-	Request *ClientBody
+	State    string
+	Request  *ClientBody
 	ToClient *ResponseToClient
+	Err      error
 }
 
 

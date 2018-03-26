@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strconv"
 	"github.com/golang_test/requester"
+	//"time"
 	"fmt"
-	"time"
 )
 
 const (
@@ -65,7 +65,7 @@ func (w *HandlersWrapper) RequestFromClientHandler(ctx echo.Context) error {
 	if err := ctx.Bind(result); err != nil {
 		return err
 	}
-	id :=w.toQueue(result)
+	id := w.toQueue(result)
 	res := struct {
 		Checkid int `json:"Checkid"`
 	}{id}
@@ -87,13 +87,19 @@ func (w *HandlersWrapper) CheckResponse(ctx echo.Context) error {
 		}{perfoming}
 		return ctx.JSON(http.StatusAccepted, res)
 	case perfomed:
+		if job.Err != nil {
+			res := struct {
+				Error string
+			}{fmt.Sprintf("%s", job.Err)}
+			return ctx.JSON(http.StatusInternalServerError, res)
+		}
 		return ctx.JSON(http.StatusOK, job.ToClient)
 	}
 	return nil
 }
 
 func (w *HandlersWrapper) toQueue(r *store.ClientBody) int {
-	job := &store.Job{newjb, r, nil}
+	job := &store.Job{newjb, r, nil, nil}
 	id := w.jdb.Set(job)
 	go func() {queue <- id}()
 	return id
@@ -105,10 +111,12 @@ func (w *HandlersWrapper) JobExecutor() {
 		case i := <- queue:
 			data := w.jdb.ChangeState(i, perfoming)
 			go func() {
-				time.Sleep(15*time.Second)
+				//time.Sleep(15*time.Second)
 				resp, err := requester.RequestIssueExecutor(data.Request)
 				if err != nil {
-					fmt.Println("errrror\n")
+					data := w.jdb.ChangeState(i, perfomed)
+					data.Err = err
+					return
 				}
 				responseToClient := &store.ResponseToClient{
 					ResponseData: resp,
@@ -124,7 +132,6 @@ func (w *HandlersWrapper) JobExecutor() {
 		}
 	}
 }
-
 
 func New(db store.DbService, jdb store.JobDbService) *HandlersWrapper {
 	return &HandlersWrapper{db, jdb}
