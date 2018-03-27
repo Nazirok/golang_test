@@ -31,7 +31,6 @@ type Job struct {
 	Err      error
 }
 
-
 type DbService interface {
 	Set(value *DataForDb) int
 	Delete(key int) bool
@@ -39,10 +38,9 @@ type DbService interface {
 	GetAllData() []*DataForDb
 }
 
-
 type JobDbService interface {
 	Set(value *Job) int
 	Delete(key int) bool
 	Get(key int) (*Job, bool)
-	ChangeState(key int, s string) *Job
+	ChangeState(key int, s string, t *ResponseToClient, e error) *Job
 }

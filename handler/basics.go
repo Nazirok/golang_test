@@ -1,18 +1,18 @@
 package handler
 
 import (
+	"fmt"
+	"github.com/golang_test/requester"
 	"github.com/golang_test/store"
 	"github.com/labstack/echo"
 	"net/http"
 	"strconv"
-	"github.com/golang_test/requester"
-	"fmt"
 )
 
 const (
-	newjb = "new"
+	newjb     = "new"
 	perfoming = "is performing"
-	perfomed = "perfomed"
+	perfomed  = "perfomed"
 )
 
 var queue = make(chan int)
@@ -20,7 +20,6 @@ var queue = make(chan int)
 type HandlersWrapper struct {
 	db  store.DbService
 	jdb store.JobDbService
-
 }
 
 func (w *HandlersWrapper) RequestsForClient(ctx echo.Context) error {
@@ -71,7 +70,6 @@ func (w *HandlersWrapper) RequestFromClientHandler(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, res)
 }
 
-
 func (w *HandlersWrapper) CheckResponse(ctx echo.Context) error {
 	item := ctx.Param("id")
 	tempid, _ := strconv.Atoi(item)
@@ -98,23 +96,21 @@ func (w *HandlersWrapper) CheckResponse(ctx echo.Context) error {
 	return nil
 }
 
-
 func (w *HandlersWrapper) toQueue(r *store.ClientBody) int {
 	job := &store.Job{newjb, r, nil, nil}
 	id := w.jdb.Set(job)
-	go func() {queue <- id}()
+	go func() { queue <- id }()
 	return id
 }
 
 func (w *HandlersWrapper) JobExecutor() {
 	for {
-		i := <- queue
-		data := w.jdb.ChangeState(i, perfoming)
-		go func() {
+		i := <-queue
+		data := w.jdb.ChangeState(i, perfoming, nil, nil)
+		go func(i int) {
 			resp, err := requester.RequestIssueExecutor(data.Request)
 			if err != nil {
-				data := w.jdb.ChangeState(i, perfomed)
-				data.Err = err
+				w.jdb.ChangeState(i, perfomed, nil, err)
 				return
 			}
 			responseToClient := &store.ResponseToClient{
@@ -125,9 +121,8 @@ func (w *HandlersWrapper) JobExecutor() {
 				ResponseData: resp,
 			}
 			responseToClient.Id = w.db.Set(dataFoDb)
-			data := w.jdb.ChangeState(i, perfomed)
-			data.ToClient = responseToClient
-		}()
+			w.jdb.ChangeState(i, perfomed, responseToClient, nil)
+		}(i)
 	}
 }
 

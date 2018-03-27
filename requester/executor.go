@@ -12,7 +12,7 @@ type Requester interface {
 	RequestIssueExecutor(result *store.ClientBody) (resp *store.ResponseData, err error)
 }
 
-var client = &http.Client{Timeout: time.Second * 10}
+var client = &http.Client{Timeout: time.Second * 20}
 
 func RequestIssueExecutor(result *store.ClientBody) (resp *store.ResponseData, err error) {
 	req := &http.Request{}

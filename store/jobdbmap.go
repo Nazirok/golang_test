@@ -7,9 +7,8 @@ import (
 type JobMapStore struct {
 	id   int
 	mu   sync.RWMutex
-	data map[int] *Job
+	data map[int]*Job
 }
-
 
 func (db *JobMapStore) set(value *Job) int {
 	db.id += 1
@@ -23,7 +22,6 @@ func (db *JobMapStore) Set(value *Job) int {
 	defer db.mu.Unlock()
 	return db.set(value)
 }
-
 
 func (db *JobMapStore) get(key int) (*Job, bool) {
 	item, ok := db.data[key]
@@ -50,11 +48,14 @@ func (db *JobMapStore) Delete(key int) bool {
 	return true
 }
 
-func (db *JobMapStore) ChangeState(key int, s string) *Job {
+func (db *JobMapStore) ChangeState(key int, s string, t *ResponseToClient, e error) *Job {
 	db.mu.Lock()
 	defer db.mu.Unlock()
-	db.data[key].State = s
-	return db.data[key]
+	job := db.data[key]
+	job.State = s
+	job.ToClient = t
+	job.Err = e
+	return job
 
 }
 
@@ -69,4 +70,3 @@ func NewJobMapStore() *JobMapStore {
 	mapDb.initData()
 	return mapDb
 }
-
