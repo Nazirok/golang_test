@@ -28,7 +28,7 @@ type CheckBody struct {
 }
 
 var s = New()
-var mapDb = store.NewDataMapStore()
+var mapDb = store.NewMapDataStore()
 var mapJDb = store.NewJobMapStore()
 var w = handler.New(mapDb, mapJDb)
 var wg sync.WaitGroup
@@ -152,8 +152,8 @@ func Test_RequestsForClient(t *testing.T) {
 	db := struct {
 		Data []struct {
 			Id           int         `json:"id"`
-			Request      interface{} `json:"Request"`
-			ResponseData interface{} `json:"ResponseData"`
+			Request      interface{} `json:"ClientRequest"`
+			ResponseData interface{} `json:"Response"`
 		}
 	}{}
 	req := httptest.NewRequest("GET", "/requests", nil)
@@ -176,8 +176,8 @@ func Test_RequestsForClient(t *testing.T) {
 func Test_RequestForClientById(t *testing.T) {
 	db := struct {
 		Id           int         `json:"id"`
-		Request      interface{} `json:"Request"`
-		ResponseData interface{} `json:"ResponseData"`
+		Request      interface{} `json:"ClientRequest"`
+		ResponseData interface{} `json:"Response"`
 	}{}
 	for i := 1; i <= 3; i++ {
 		url := fmt.Sprintf("/requests/%d", i)

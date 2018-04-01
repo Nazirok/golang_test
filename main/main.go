@@ -11,7 +11,7 @@ func main() {
 }
 
 func mainFunc() {
-	mapDb := store.NewDataMapStore()
+	mapDb := store.NewMapDataStore()
 	mapJDb := store.NewJobMapStore()
 	w := handler.New(mapDb, mapJDb)
 	s := server.New()

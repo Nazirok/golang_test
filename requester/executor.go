@@ -9,12 +9,12 @@ import (
 )
 
 type Requester interface {
-	RequestIssueExecutor(result *store.ClientBody) (resp *store.ResponseData, err error)
+	RequestIssueExecutor(result *store.ClientRequest) (resp *store.Response, err error)
 }
 
 var client = &http.Client{Timeout: time.Second * 20}
 
-func RequestIssueExecutor(result *store.ClientBody) (resp *store.ResponseData, err error) {
+func RequestIssueExecutor(result *store.ClientRequest) (resp *store.Response, err error) {
 	req := &http.Request{}
 	var temp []byte
 	if result.Body != nil {
@@ -37,10 +37,10 @@ func RequestIssueExecutor(result *store.ClientBody) (resp *store.ResponseData, e
 		return nil, err
 	}
 	defer res.Body.Close()
-	resp = &store.ResponseData{
-		Headers: res.Header,
-		Status:  res.StatusCode,
-		Length:  res.ContentLength,
+	resp = &store.Response{
+		Headers:    res.Header,
+		StatusCode: res.StatusCode,
+		BodyLength: res.ContentLength,
 	}
 	return resp, err
 }

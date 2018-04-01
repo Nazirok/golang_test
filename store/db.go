@@ -1,46 +1,47 @@
 package store
 
-type ClientBody struct {
-	Method  string              `json:"Method"`
-	Url     string              `json:"Url"`
-	Headers map[string][]string `json:"Headers"`
-	Body    interface{}         `json:"Body"`
+type ClientRequest struct {
+	Method  string              `json:"method"`
+	Url     string              `json:"url"`
+	Headers map[string][]string `json:"headers"`
+	Body    interface{}         `json:"body"`
 }
 
-type ResponseData struct {
-	Status  int                 `json:"Status-code"`
-	Headers map[string][]string `json:"Headers"`
-	Length  int64               `json:"Content-Length"`
+type Response struct {
+	StatusCode int                 `json:"status_code"`
+	Headers    map[string][]string `json:"headers"`
+	Body       string              `json:"body"`
+	BodyLength int64               `json:"body_length"`
+}
+
+type Request struct {
+	ID            int            `json:"id"`
+	ClientRequest *ClientRequest `json:"request"`
+	Response      *Response      `json:"response"`
+	Status        *ExecStatus    `json:"status"`
+}
+
+type ExecStatus struct {
+	State    string `json:"status"`
+	Err      string `json:"error"`
 }
 
 type ResponseToClient struct {
-	Id           int           `json:"id"`
-	ResponseData *ResponseData `json:"ResponseData"`
+	ID           int       `json:"id"`
+	ResponseData *Response `json:"response"`
 }
 
-type DataForDb struct {
-	Id           int           `json:"Id"`
-	Request      *ClientBody   `json:"Request"`
-	ResponseData *ResponseData `json:"ResponseData"`
-}
-
-type Job struct {
-	State    string
-	Request  *ClientBody
-	ToClient *ResponseToClient
-	Err      error
-}
-
-type DbService interface {
-	Set(value *DataForDb) int
-	Delete(key int) bool
-	Get(key int) (*DataForDb, bool)
-	GetAllData() []*DataForDb
+type DataStore interface {
+	SetRequest(r *ClientRequest) (int, error)
+	Delete(id int) bool
+	GetRequest(id int) (*Request, bool)
+	GetAllRequests() ([]*Request, error)
+	ExecRequest(id int) error
 }
 
 type JobDbService interface {
-	Set(value *Job) int
+	Set(value *ExecStatus) int
 	Delete(key int) bool
-	Get(key int) (*Job, bool)
-	ChangeState(key int, s string, t *ResponseToClient, e error) *Job
+	Get(key int) (*ExecStatus, bool)
+	ChangeState(key int, s string, t *ResponseToClient, e error) *ExecStatus
 }
