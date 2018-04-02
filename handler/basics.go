@@ -86,10 +86,10 @@ func (w *HandlersWrapper) CheckResponse(ctx echo.Context) error {
 		return ctx.JSON(http.StatusOK, request.Response)
 
 	case "error":
-			res := struct {
-				Error string
-			}{fmt.Sprintf("%s", request.Status.Err)}
-			return ctx.JSON(http.StatusInternalServerError, res)
+		res := struct {
+			Error string
+		}{fmt.Sprintf("%s", request.Status.Err)}
+		return ctx.JSON(http.StatusInternalServerError, res)
 	}
 	return nil
 }
