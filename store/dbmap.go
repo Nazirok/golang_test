@@ -17,7 +17,6 @@ func (db *MapDataStore) generateId() int {
 }
 
 func (db *MapDataStore) setRequest(r *ClientRequest) int {
-	db.id += 1
 	request := &Request{
 		ID:     db.generateId(),
 		ClientRequest: r,
@@ -28,10 +27,10 @@ func (db *MapDataStore) setRequest(r *ClientRequest) int {
 
 }
 
-func (db *MapDataStore) SetRequest(r *ClientRequest) int {
+func (db *MapDataStore) SetRequest(r *ClientRequest) (int, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
-	return db.setRequest(r)
+	return db.setRequest(r), nil
 }
 
 func (db *MapDataStore) getRequest(id int) (*Request, bool) {
@@ -53,10 +52,7 @@ func (db *MapDataStore) Delete(key int) bool {
 	defer db.mu.Unlock()
 	delete(db.data, key)
 	_, ok := db.data[key]
-	if ok {
-		return false
-	}
-	return true
+	return ok
 }
 
 func (db *MapDataStore) GetAllRequests() ([]*Request, error) {
@@ -69,19 +65,19 @@ func (db *MapDataStore) GetAllRequests() ([]*Request, error) {
 	return out, nil
 }
 
-func (db *MapDataStore) ExecRequest(id int) error {
+func (db *MapDataStore) ExecRequest(id int) (*ClientRequest, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	request, ok := db.data[id]
 	if !ok {
-		return errors.New("request.not.found")
+		return nil, errors.New("request.not.found")
 	}
 	request.Status.State = "is performing"
 	request.Status.Err = ""
-	return nil
+	return request.ClientRequest, nil
 }
 
-func (db *MapDataStore) SetResponce(id int, response *Response, err error) error {
+func (db *MapDataStore) SetResponse(id int, response *Response, err error) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	request, ok := db.data[id]

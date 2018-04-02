@@ -9,35 +9,32 @@ import (
 	"strconv"
 )
 
-const (
-	newjb     = "new"
-	perfoming = "is performing"
-	perfomed  = "perfomed"
-)
-
 var queue = make(chan int)
 var quit = make(chan struct{})
 
 type HandlersWrapper struct {
-	db  store.DataStore
-	jdb store.JobDbService
+	store.DataStore
 }
 
 func (w *HandlersWrapper) RequestsForClient(ctx echo.Context) error {
 	// метод выдает все сохрааненные просьбы
 	ctx.Response().Header().Set(echo.HeaderContentType, echo.MIMEApplicationJSONCharsetUTF8)
 	ctx.Response().WriteHeader(http.StatusOK)
-	allRequests := &struct {
-		Data []*store.Request `json:"ClientRequest"`
-	}{w.db.GetAllRequests()}
-	return ctx.JSON(http.StatusOK, allRequests)
+	requests, err := w.GetAllRequests()
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+	requestsJson := &struct {
+		Data []*store.Request `json:"clientRequests"`
+	}{requests}
+	return ctx.JSON(http.StatusOK, requestsJson)
 }
 
 func (w *HandlersWrapper) RequestForClientById(ctx echo.Context) error {
 	//метод выдает информацию по просьбе по id
 	item := ctx.Param("id")
 	tempid, _ := strconv.Atoi(item)
-	request, ok := w.db.GetRequest(tempid)
+	request, ok := w.GetRequest(tempid)
 	if !ok {
 		return echo.NewHTTPError(http.StatusNotFound)
 	}
@@ -48,25 +45,24 @@ func (w *HandlersWrapper) DeleteRequestForClient(ctx echo.Context) error {
 	// функция для удаления просьбы
 	item := ctx.Param("id")
 	tempid, _ := strconv.Atoi(item)
-	if _, ok := w.db.GetRequest(tempid); !ok {
+	if ok := w.Delete(tempid); !ok {
 		return echo.NewHTTPError(http.StatusNotFound)
 	}
-	ok := w.db.Delete(tempid)
-	if !ok {
+	if ok := w.Delete(tempid); !ok {
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
-	ctx.Response().WriteHeader(http.StatusOK)
-	return nil
+	return ctx.JSON(http.StatusOK, "OK")
 }
 
 func (w *HandlersWrapper) RequestFromClientHandler(ctx echo.Context) error {
 	result := &store.ClientRequest{}
 	if err := ctx.Bind(result); err != nil {
-		return err
+		return echo.NewHTTPError(http.StatusBadRequest)
 	}
-	id := w.toQueue(result)
+	id, _ := w.SetRequest(result)
+	w.toQueue(id)
 	res := struct {
-		Checkid int `json:"Checkid"`
+		CheckID int `json:"checkid"`
 	}{id}
 	return ctx.JSON(http.StatusOK, res)
 }
@@ -74,63 +70,60 @@ func (w *HandlersWrapper) RequestFromClientHandler(ctx echo.Context) error {
 func (w *HandlersWrapper) CheckResponse(ctx echo.Context) error {
 	item := ctx.Param("id")
 	tempid, _ := strconv.Atoi(item)
-	job, ok := w.jdb.Get(tempid)
+	request, ok := w.GetRequest(tempid)
 	if !ok {
 		return echo.NewHTTPError(http.StatusNotFound)
 	}
-	switch job.State {
-	case newjb, perfoming:
+	switch request.Status.State {
+
+	case "new", "is performing":
 		res := struct {
-			State string `json:"State"`
-		}{perfoming}
+			State string `json:"state"`
+		}{"is performing"}
 		return ctx.JSON(http.StatusAccepted, res)
-	case perfomed:
-		defer w.jdb.Delete(tempid)
-		if job.Err != nil {
+
+	case "perfomed":
+		return ctx.JSON(http.StatusOK, request.Response)
+
+	case "error":
 			res := struct {
 				Error string
-			}{fmt.Sprintf("%s", job.Err)}
+			}{fmt.Sprintf("%s", request.Status.Err)}
 			return ctx.JSON(http.StatusInternalServerError, res)
-		}
-		return ctx.JSON(http.StatusOK, job.ToClient)
 	}
 	return nil
 }
 
-func (w *HandlersWrapper) toQueue(r *store.ClientRequest) int {
-	job := &store.ExecStatus{newjb, r, nil, nil}
-	id := w.jdb.Set(job)
+func (w *HandlersWrapper) toQueue(id int) {
 	go func() { queue <- id }()
-	return id
 }
 
 func (w *HandlersWrapper) JobExecutor() {
 	for {
 		select {
-			case i := <-queue:
-				data := w.jdb.ChangeState(i, perfoming, nil, nil)
-				go func(i int) {
-					resp, err := requester.RequestIssueExecutor(data.Request)
+			case id := <-queue:
+				clientRequest, err := w.ExecRequest(id)
+				if err != nil {
+					continue
+				}
+				go func(id int) {
+					resp, err := requester.RequestIssueExecutor(clientRequest)
 					if err != nil {
-						w.jdb.ChangeState(i, perfomed, nil, err)
+						w.SetResponse(id, resp, err)
 						return
 					}
-					responseToClient := &store.ResponseToClient{
-						ResponseData: resp,
-					}
-					dataFoDb := &store.Request{
-						ClientRequest: data.Request,
-						Response:      resp,
-					}
-					responseToClient.ID = w.db.SetRequest(dataFoDb)
-					w.jdb.ChangeState(i, perfomed, responseToClient, nil)
-				}(i)
+					w.SetResponse(id, resp, nil)
+				}(id)
 			case <-quit:
 				return
 		}
 	}
 }
 
-func New(db store.DataStore, jdb store.JobDbService) *HandlersWrapper {
-	return &HandlersWrapper{db, jdb}
+func (w *HandlersWrapper) StopJobExecutor() {
+	quit <- struct{}{}
+}
+
+func New(db store.DataStore) *HandlersWrapper {
+	return &HandlersWrapper{db}
 }

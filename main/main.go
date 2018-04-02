@@ -12,8 +12,7 @@ func main() {
 
 func mainFunc() {
 	mapDb := store.NewMapDataStore()
-	mapJDb := store.NewJobMapStore()
-	w := handler.New(mapDb, mapJDb)
+	w := handler.New(mapDb)
 	s := server.New()
 	s.InitHandlers(w)
 	go w.JobExecutor()

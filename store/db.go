@@ -11,7 +11,6 @@ type Response struct {
 	StatusCode int                 `json:"status_code"`
 	Headers    map[string][]string `json:"headers"`
 	Body       string              `json:"body"`
-	BodyLength int64               `json:"body_length"`
 }
 
 type Request struct {
@@ -36,12 +35,6 @@ type DataStore interface {
 	Delete(id int) bool
 	GetRequest(id int) (*Request, bool)
 	GetAllRequests() ([]*Request, error)
-	ExecRequest(id int) error
-}
-
-type JobDbService interface {
-	Set(value *ExecStatus) int
-	Delete(key int) bool
-	Get(key int) (*ExecStatus, bool)
-	ChangeState(key int, s string, t *ResponseToClient, e error) *ExecStatus
+	ExecRequest(id int) (*ClientRequest, error)
+	SetResponse(id int, response *Response, err error) error
 }

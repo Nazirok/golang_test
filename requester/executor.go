@@ -6,13 +6,14 @@ import (
 	"github.com/golang_test/store"
 	"net/http"
 	"time"
+	"io/ioutil"
 )
 
 type Requester interface {
 	RequestIssueExecutor(result *store.ClientRequest) (resp *store.Response, err error)
 }
 
-var client = &http.Client{Timeout: time.Second * 20}
+var client = &http.Client{Timeout: time.Second * 30}
 
 func RequestIssueExecutor(result *store.ClientRequest) (resp *store.Response, err error) {
 	req := &http.Request{}
@@ -37,10 +38,12 @@ func RequestIssueExecutor(result *store.ClientRequest) (resp *store.Response, er
 		return nil, err
 	}
 	defer res.Body.Close()
+	body, _ := ioutil.ReadAll(res.Body)
+
 	resp = &store.Response{
 		Headers:    res.Header,
 		StatusCode: res.StatusCode,
-		BodyLength: res.ContentLength,
+		Body:       string(body),
 	}
 	return resp, err
 }
