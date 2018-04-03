@@ -13,7 +13,6 @@ func (wb *WebServer) InitHandlers(w *handler.HandlersWrapper) {
 	wb.e.Use()
 	wb.e.GET("/requests/:id", w.RequestForClientById)
 	wb.e.GET("/requests", w.RequestsForClient)
-	wb.e.GET("/result/:id", w.CheckResponse)
 	wb.e.POST("/requests", w.RequestFromClientHandler)
 	wb.e.DELETE("/requests/:id", w.DeleteRequestForClient)
 }

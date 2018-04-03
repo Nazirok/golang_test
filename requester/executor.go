@@ -10,12 +10,20 @@ import (
 )
 
 type Requester interface {
-	RequestIssueExecutor(result *store.ClientRequest) (resp *store.Response, err error)
+	Do(result *store.ClientRequest) (resp *store.Response, err error)
 }
 
-var client = &http.Client{Timeout: time.Second * 30}
+type HTTPRequester struct {
+	c *http.Client
+}
 
-func RequestIssueExecutor(result *store.ClientRequest) (resp *store.Response, err error) {
+func NewHTTPrequester () *HTTPRequester {
+	return &HTTPRequester{
+		&http.Client{Timeout: time.Second * 30},
+		}
+}
+
+func (r *HTTPRequester) Do(result *store.ClientRequest) (resp *store.Response, err error) {
 	req := &http.Request{}
 	var temp []byte
 	if result.Body != nil {
@@ -33,7 +41,7 @@ func RequestIssueExecutor(result *store.ClientRequest) (resp *store.Response, er
 			req.Header.Set(k, item)
 		}
 	}
-	res, err := client.Do(req)
+	res, err := r.c.Do(req)
 	if err != nil {
 		return nil, err
 	}

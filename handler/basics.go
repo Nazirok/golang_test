@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/golang_test/requester"
 	"github.com/golang_test/store"
+	"github.com/golang_test/сonstants"
 	"github.com/labstack/echo"
 	"net/http"
 	"strconv"
@@ -14,6 +15,19 @@ var quit = make(chan struct{})
 
 type HandlersWrapper struct {
 	store.DataStore
+	r requester.Requester
+}
+
+type errorResponse struct {
+	Err string `json:"error"`
+}
+
+type requestIdResponse struct {
+	RequestId int `json:"requestId"`
+}
+
+type stateResponse struct {
+	State string `json:"state"`
 }
 
 func (w *HandlersWrapper) RequestsForClient(ctx echo.Context) error {
@@ -34,11 +48,24 @@ func (w *HandlersWrapper) RequestForClientById(ctx echo.Context) error {
 	//метод выдает информацию по просьбе по id
 	item := ctx.Param("id")
 	tempid, _ := strconv.Atoi(item)
-	request, ok := w.GetRequest(tempid)
-	if !ok {
-		return echo.NewHTTPError(http.StatusNotFound)
+	request, err := w.GetRequest(tempid)
+	if err !=nil {
+		e := errorResponse{fmt.Sprintf("%s", err)}
+		return ctx.JSON(http.StatusInternalServerError, e)
 	}
-	return ctx.JSON(http.StatusOK, request)
+	if request == nil {
+		return ctx.JSON(http.StatusNotFound, "request.not.found")
+	}
+
+	switch request.Status.State {
+	case сonstants.RequestStateNew, сonstants.RequestStateInProgress:
+		s := stateResponse{сonstants.RequestStateInProgress}
+		return ctx.JSON(http.StatusAccepted, s)
+
+	case сonstants.RequestStateDone, сonstants.RequestStateError:
+		return ctx.JSON(http.StatusOK, request)
+	}
+	return nil
 }
 
 func (w *HandlersWrapper) DeleteRequestForClient(ctx echo.Context) error {
@@ -61,38 +88,10 @@ func (w *HandlersWrapper) RequestFromClientHandler(ctx echo.Context) error {
 	}
 	id, _ := w.SetRequest(result)
 	w.toQueue(id)
-	res := struct {
-		CheckID int `json:"checkid"`
-	}{id}
-	return ctx.JSON(http.StatusOK, res)
+	r := requestIdResponse{id}
+	return ctx.JSON(http.StatusOK, r)
 }
 
-func (w *HandlersWrapper) CheckResponse(ctx echo.Context) error {
-	item := ctx.Param("id")
-	tempid, _ := strconv.Atoi(item)
-	request, ok := w.GetRequest(tempid)
-	if !ok {
-		return echo.NewHTTPError(http.StatusNotFound)
-	}
-	switch request.Status.State {
-
-	case "new", "is performing":
-		res := struct {
-			State string `json:"state"`
-		}{"is performing"}
-		return ctx.JSON(http.StatusAccepted, res)
-
-	case "perfomed":
-		return ctx.JSON(http.StatusOK, request.Response)
-
-	case "error":
-		res := struct {
-			Error string
-		}{fmt.Sprintf("%s", request.Status.Err)}
-		return ctx.JSON(http.StatusInternalServerError, res)
-	}
-	return nil
-}
 
 func (w *HandlersWrapper) toQueue(id int) {
 	go func() { queue <- id }()
@@ -107,7 +106,7 @@ func (w *HandlersWrapper) JobExecutor() {
 					continue
 				}
 				go func(id int) {
-					resp, err := requester.RequestIssueExecutor(clientRequest)
+					resp, err := w.r.Do(clientRequest)
 					if err != nil {
 						w.SetResponse(id, resp, err)
 						return
@@ -124,6 +123,6 @@ func (w *HandlersWrapper) StopJobExecutor() {
 	quit <- struct{}{}
 }
 
-func New(db store.DataStore) *HandlersWrapper {
-	return &HandlersWrapper{db}
+func New(db store.DataStore, r requester.Requester) *HandlersWrapper {
+	return &HandlersWrapper{db, r}
 }

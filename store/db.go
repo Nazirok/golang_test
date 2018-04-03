@@ -33,7 +33,7 @@ type ResponseToClient struct {
 type DataStore interface {
 	SetRequest(r *ClientRequest) (int, error)
 	Delete(id int) bool
-	GetRequest(id int) (*Request, bool)
+	GetRequest(id int) (*Request, error)
 	GetAllRequests() ([]*Request, error)
 	ExecRequest(id int) (*ClientRequest, error)
 	SetResponse(id int, response *Response, err error) error

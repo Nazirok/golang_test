@@ -3,6 +3,7 @@ package store
 import (
 	"sync"
 	"errors"
+	"github.com/golang_test/сonstants"
 )
 
 type MapDataStore struct {
@@ -20,7 +21,7 @@ func (db *MapDataStore) setRequest(r *ClientRequest) int {
 	request := &Request{
 		ID:     db.generateId(),
 		ClientRequest: r,
-		Status: &ExecStatus{State: "new"},
+		Status: &ExecStatus{State: сonstants.RequestStateNew},
 	}
 	db.data[request.ID] = request
 	return request.ID
@@ -33,15 +34,15 @@ func (db *MapDataStore) SetRequest(r *ClientRequest) (int, error) {
 	return db.setRequest(r), nil
 }
 
-func (db *MapDataStore) getRequest(id int) (*Request, bool) {
+func (db *MapDataStore) getRequest(id int) (*Request, error) {
 	item, ok := db.data[id]
 	if !ok {
-		return nil, ok
+		return nil, errors.New("request.not.found")
 	}
-	return item, ok
+	return item, nil
 }
 
-func (db *MapDataStore) GetRequest(id int) (*Request, bool) {
+func (db *MapDataStore) GetRequest(id int) (*Request, error) {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 	return db.getRequest(id)
@@ -70,9 +71,9 @@ func (db *MapDataStore) ExecRequest(id int) (*ClientRequest, error) {
 	defer db.mu.Unlock()
 	request, ok := db.data[id]
 	if !ok {
-		return nil, errors.New("request.not.found")
+		return nil, errors.New(сonstants.RequestNotFound)
 	}
-	request.Status.State = "is performing"
+	request.Status.State = сonstants.RequestStateInProgress
 	request.Status.Err = ""
 	return request.ClientRequest, nil
 }
@@ -82,13 +83,13 @@ func (db *MapDataStore) SetResponse(id int, response *Response, err error) error
 	defer db.mu.Unlock()
 	request, ok := db.data[id]
 	if !ok {
-		return errors.New("request.not.found")
+		return errors.New(сonstants.RequestNotFound)
 	}
 	if err != nil {
-		request.Status.State = "error"
+		request.Status.State = сonstants.RequestStateError
 		request.Status.Err = err.Error()
 	} else {
-		request.Status.State = "perfomed"
+		request.Status.State = сonstants.RequestStateDone
 	}
 	request.Response = response
 	return nil
