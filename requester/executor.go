@@ -19,7 +19,7 @@ type HTTPRequester struct {
 
 func NewHTTPrequester() *HTTPRequester {
 	return &HTTPRequester{
-		&http.Client{Timeout: time.Second * 5},
+		&http.Client{Timeout: time.Second * 30},
 	}
 }
 

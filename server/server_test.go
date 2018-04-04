@@ -7,15 +7,15 @@ import (
 	"fmt"
 	"github.com/golang_test/handler"
 	"github.com/golang_test/store"
+	"github.com/stretchr/testify/assert"
 	"github.com/golang_test/сonstants"
 	"github.com/labstack/echo"
-	"github.com/stretchr/testify/assert"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
+	"io/ioutil"
 )
 
 var s = New()
@@ -70,6 +70,7 @@ func Test_ExecNewRequest(t *testing.T) {
 		t.Error("error in demarshaling", err)
 	}
 	id := r.RequestId
+	time.Sleep(time.Millisecond * 50)
 	res, _ := mapDb.GetRequest(id)
 	assert.Equal(t, *clientRequest, *res.ClientRequest)
 	assert.Equal(t, сonstants.RequestStateDone, res.Status.State)
@@ -77,7 +78,7 @@ func Test_ExecNewRequest(t *testing.T) {
 
 
 func Test_ExecNewLongRequest(t *testing.T) {
-	requester.SetDelay(5 * time.Second)
+	requester.SetDelay(1 * time.Second)
 	clientRequest := &store.ClientRequest{
 		Method: "GET", URL: "Some url", Body: "body", Headers: map[string][]string{"header": []string{"a", "bv"}},
 	}
@@ -101,7 +102,7 @@ func Test_ExecNewLongRequest(t *testing.T) {
 	res, _ := mapDb.GetRequest(id)
 	assert.Equal(t, *clientRequest, *res.ClientRequest)
 	assert.Equal(t, сonstants.RequestStateInProgress, res.Status.State)
-	time.Sleep(time.Second * 5)
+	time.Sleep(time.Second * 2)
 	res, _ = mapDb.GetRequest(id)
 	assert.Equal(t, *clientRequest, *res.ClientRequest)
 	assert.Equal(t, сonstants.RequestStateDone, res.Status.State)
@@ -181,7 +182,7 @@ func Test_GetAllRequests(t *testing.T) {
 	req := httptest.NewRequest("GET", "/requests", nil)
 	rec := httptest.NewRecorder()
 	s.e.ServeHTTP(rec, req)
-	assert.Equal(t, http.StatusAccepted, rec.Code, "Bad status code")
+	assert.Equal(t, http.StatusOK, rec.Code, "Bad status code")
 	body, err := ioutil.ReadAll(rec.Body)
 	r := &store.Request{}
 	if err = json.Unmarshal(body, &r); err != nil {
@@ -193,5 +194,30 @@ func Test_GetAllRequests(t *testing.T) {
 	if err = json.Unmarshal(body, &requests); err != nil {
 		t.Error("error in demarshaling", err)
 	}
-	assert.Equal(t, 10, len(requests.Data))
+	var g = assert.Comparison(func() (success bool) {
+		return len(requests.Data) >= 10
+	})
+	assert.Condition(t, g, "Bad len of response")
+}
+
+func Test_DeleteRequest(t *testing.T) {
+	id := createRequest()
+	r, err := mapDb.GetRequest(id)
+	assert.Equal(t, nil, err)
+	assert.NotEqual(t, nil, r)
+	url := fmt.Sprintf("/requests/%d", id)
+	req := httptest.NewRequest("DELETE", url, nil)
+	rec := httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusOK, rec.Code, "Bad status code")
+	r, err = mapDb.GetRequest(id)
+	assert.NotEqual(t, nil, err)
+}
+
+func Test_DeleteNotExistedRequest(t *testing.T) {
+	url := fmt.Sprintf("/requests/%d", 8908089)
+	req := httptest.NewRequest("DELETE", url, nil)
+	rec := httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusInternalServerError, rec.Code, "Bad status code")
 }
