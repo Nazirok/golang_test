@@ -2,7 +2,7 @@ package store
 
 type ClientRequest struct {
 	Method  string              `json:"method"`
-	Url     string              `json:"url"`
+	URL     string              `json:"url"`
 	Headers map[string][]string `json:"headers"`
 	Body    interface{}         `json:"body"`
 }
@@ -21,8 +21,8 @@ type Request struct {
 }
 
 type ExecStatus struct {
-	State    string `json:"status"`
-	Err      string `json:"error"`
+	State string `json:"state"`
+	Err   string `json:"error"`
 }
 
 type ResponseToClient struct {
@@ -32,7 +32,7 @@ type ResponseToClient struct {
 
 type DataStore interface {
 	SetRequest(r *ClientRequest) (int, error)
-	Delete(id int) bool
+	Delete(id int) error
 	GetRequest(id int) (*Request, error)
 	GetAllRequests() ([]*Request, error)
 	ExecRequest(id int) (*ClientRequest, error)

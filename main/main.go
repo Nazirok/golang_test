@@ -2,9 +2,9 @@ package main
 
 import (
 	"github.com/golang_test/handler"
+	"github.com/golang_test/requester"
 	"github.com/golang_test/server"
 	"github.com/golang_test/store"
-	"github.com/golang_test/requester"
 )
 
 func main() {

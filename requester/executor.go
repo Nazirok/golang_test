@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"github.com/golang_test/store"
+	"io/ioutil"
 	"net/http"
 	"time"
-	"io/ioutil"
 )
 
 type Requester interface {
@@ -17,10 +17,10 @@ type HTTPRequester struct {
 	c *http.Client
 }
 
-func NewHTTPrequester () *HTTPRequester {
+func NewHTTPrequester() *HTTPRequester {
 	return &HTTPRequester{
-		&http.Client{Timeout: time.Second * 30},
-		}
+		&http.Client{Timeout: time.Second * 5},
+	}
 }
 
 func (r *HTTPRequester) Do(result *store.ClientRequest) (resp *store.Response, err error) {
@@ -32,7 +32,7 @@ func (r *HTTPRequester) Do(result *store.ClientRequest) (resp *store.Response, e
 			return resp, err
 		}
 	}
-	req, err = http.NewRequest(result.Method, result.Url, bytes.NewReader(temp))
+	req, err = http.NewRequest(result.Method, result.URL, bytes.NewReader(temp))
 	if err != nil {
 		return nil, err
 	}

@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"fmt"
 	"github.com/golang_test/requester"
 	"github.com/golang_test/store"
 	"github.com/golang_test/сonstants"
@@ -19,7 +18,7 @@ type HandlersWrapper struct {
 }
 
 type errorResponse struct {
-	Err string `json:"error"`
+	Error string `json:"error"`
 }
 
 type requestIdResponse struct {
@@ -32,8 +31,6 @@ type stateResponse struct {
 
 func (w *HandlersWrapper) RequestsForClient(ctx echo.Context) error {
 	// метод выдает все сохрааненные просьбы
-	ctx.Response().Header().Set(echo.HeaderContentType, echo.MIMEApplicationJSONCharsetUTF8)
-	ctx.Response().WriteHeader(http.StatusOK)
 	requests, err := w.GetAllRequests()
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError)
@@ -49,12 +46,13 @@ func (w *HandlersWrapper) RequestForClientById(ctx echo.Context) error {
 	item := ctx.Param("id")
 	tempid, _ := strconv.Atoi(item)
 	request, err := w.GetRequest(tempid)
-	if err !=nil {
-		e := errorResponse{fmt.Sprintf("%s", err)}
+	if err != nil {
+		e := errorResponse{err.Error()}
 		return ctx.JSON(http.StatusInternalServerError, e)
 	}
 	if request == nil {
-		return ctx.JSON(http.StatusNotFound, "request.not.found")
+		e := errorResponse{сonstants.RequestNotFound}
+		return ctx.JSON(http.StatusNotFound, e)
 	}
 
 	switch request.Status.State {
@@ -72,11 +70,9 @@ func (w *HandlersWrapper) DeleteRequestForClient(ctx echo.Context) error {
 	// функция для удаления просьбы
 	item := ctx.Param("id")
 	tempid, _ := strconv.Atoi(item)
-	if ok := w.Delete(tempid); !ok {
-		return echo.NewHTTPError(http.StatusNotFound)
-	}
-	if ok := w.Delete(tempid); !ok {
-		return echo.NewHTTPError(http.StatusInternalServerError)
+	if err := w.Delete(tempid); err != nil {
+		e := errorResponse{err.Error()}
+		return ctx.JSON(http.StatusInternalServerError, e)
 	}
 	return ctx.JSON(http.StatusOK, "OK")
 }
@@ -92,7 +88,6 @@ func (w *HandlersWrapper) RequestFromClientHandler(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, r)
 }
 
-
 func (w *HandlersWrapper) toQueue(id int) {
 	go func() { queue <- id }()
 }
@@ -100,21 +95,21 @@ func (w *HandlersWrapper) toQueue(id int) {
 func (w *HandlersWrapper) JobExecutor() {
 	for {
 		select {
-			case id := <-queue:
-				clientRequest, err := w.ExecRequest(id)
+		case id := <-queue:
+			clientRequest, err := w.ExecRequest(id)
+			if err != nil {
+				continue
+			}
+			go func(id int) {
+				resp, err := w.r.Do(clientRequest)
 				if err != nil {
-					continue
+					w.SetResponse(id, resp, err)
+					return
 				}
-				go func(id int) {
-					resp, err := w.r.Do(clientRequest)
-					if err != nil {
-						w.SetResponse(id, resp, err)
-						return
-					}
-					w.SetResponse(id, resp, nil)
-				}(id)
-			case <-quit:
-				return
+				w.SetResponse(id, resp, nil)
+			}(id)
+		case <-quit:
+			return
 		}
 	}
 }

@@ -1,9 +1,9 @@
 package store
 
 import (
-	"sync"
 	"errors"
 	"github.com/golang_test/сonstants"
+	"sync"
 )
 
 type MapDataStore struct {
@@ -19,9 +19,9 @@ func (db *MapDataStore) generateId() int {
 
 func (db *MapDataStore) setRequest(r *ClientRequest) int {
 	request := &Request{
-		ID:     db.generateId(),
+		ID:            db.generateId(),
 		ClientRequest: r,
-		Status: &ExecStatus{State: сonstants.RequestStateNew},
+		Status:        &ExecStatus{State: сonstants.RequestStateNew},
 	}
 	db.data[request.ID] = request
 	return request.ID
@@ -37,7 +37,7 @@ func (db *MapDataStore) SetRequest(r *ClientRequest) (int, error) {
 func (db *MapDataStore) getRequest(id int) (*Request, error) {
 	item, ok := db.data[id]
 	if !ok {
-		return nil, errors.New("request.not.found")
+		return nil, errors.New(сonstants.RequestNotFound)
 	}
 	return item, nil
 }
@@ -48,12 +48,17 @@ func (db *MapDataStore) GetRequest(id int) (*Request, error) {
 	return db.getRequest(id)
 }
 
-func (db *MapDataStore) Delete(key int) bool {
+func (db *MapDataStore) Delete(key int) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
+	if _, ok := db.data[key]; !ok {
+		return errors.New(сonstants.RequestNotFound)
+	}
 	delete(db.data, key)
-	_, ok := db.data[key]
-	return ok
+	if _, ok := db.data[key]; ok {
+		return errors.New(сonstants.RequestNotDeleted)
+	}
+	return nil
 }
 
 func (db *MapDataStore) GetAllRequests() ([]*Request, error) {
