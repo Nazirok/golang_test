@@ -12,6 +12,12 @@ type MapDataStore struct {
 	data map[int]*Request
 }
 
+func NewMapDataStore() *MapDataStore {
+	db := &MapDataStore{}
+	db.initData()
+	return db
+}
+
 func (db *MapDataStore) generateId() int {
 	db.id += 1
 	return db.id
@@ -104,10 +110,4 @@ func (db *MapDataStore) initData() {
 	if db.data == nil {
 		db.data = make(map[int]*Request)
 	}
-}
-
-func NewMapDataStore() *MapDataStore {
-	db := &MapDataStore{}
-	db.initData()
-	return db
 }

@@ -26,6 +26,10 @@ type stateResponse struct {
 	State string `json:"state"`
 }
 
+func New(db store.DataStore, wr worker.RequestsExecutor) *HandlersWrapper {
+	return &HandlersWrapper{db, wr}
+}
+
 func (w *HandlersWrapper) RequestsForClient(ctx echo.Context) error {
 	// метод выдает все сохрааненные просьбы
 	requests, err := w.GetAllRequests()
@@ -83,8 +87,4 @@ func (w *HandlersWrapper) RequestFromClientHandler(ctx echo.Context) error {
 	w.AddRequest(id)
 	r := requestIdResponse{id}
 	return ctx.JSON(http.StatusOK, r)
-}
-
-func New(db store.DataStore, wr worker.RequestsExecutor) *HandlersWrapper {
-	return &HandlersWrapper{db, wr}
 }

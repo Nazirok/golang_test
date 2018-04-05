@@ -9,6 +9,10 @@ type WebServer struct {
 	e *echo.Echo
 }
 
+func New() *WebServer {
+	return &WebServer{echo.New()}
+}
+
 func (wb *WebServer) InitHandlers(w *handler.HandlersWrapper) {
 	wb.e.Use()
 	wb.e.GET("/requests/:id", w.RequestForClientById)
@@ -19,8 +23,4 @@ func (wb *WebServer) InitHandlers(w *handler.HandlersWrapper) {
 
 func (wb *WebServer) StartServer() {
 	wb.e.Logger.Fatal(wb.e.Start(":8000"))
-}
-
-func New() *WebServer {
-	return &WebServer{echo.New()}
 }
