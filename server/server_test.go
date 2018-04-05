@@ -7,21 +7,23 @@ import (
 	"fmt"
 	"github.com/golang_test/handler"
 	"github.com/golang_test/store"
-	"github.com/stretchr/testify/assert"
+	"github.com/golang_test/worker"
 	"github.com/golang_test/сonstants"
 	"github.com/labstack/echo"
+	"github.com/stretchr/testify/assert"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
-	"io/ioutil"
 )
 
 var s = New()
 var mapDb = store.NewMapDataStore()
 var requester = &testRequester{0}
-var w = handler.New(mapDb, requester)
+var wr = worker.NewRequestsExecutorByChan(mapDb, requester)
+var w = handler.New(mapDb, wr)
 
 type testRequester struct {
 	delay time.Duration
@@ -44,7 +46,7 @@ func (r *testRequester) Do(result *store.ClientRequest) (resp *store.Response, e
 }
 
 func TestMain(m *testing.M) {
-	go w.JobExecutor()
+	go wr.RequestExecuteLoop()
 	s.InitHandlers(w)
 	os.Exit(m.Run())
 }
@@ -76,7 +78,6 @@ func Test_ExecNewRequest(t *testing.T) {
 	assert.Equal(t, сonstants.RequestStateDone, res.Status.State)
 }
 
-
 func Test_ExecNewLongRequest(t *testing.T) {
 	requester.SetDelay(1 * time.Second)
 	clientRequest := &store.ClientRequest{
@@ -101,13 +102,13 @@ func Test_ExecNewLongRequest(t *testing.T) {
 	id := r.RequestId
 	res, _ := mapDb.GetRequest(id)
 	assert.Equal(t, *clientRequest, *res.ClientRequest)
+	time.Sleep(time.Millisecond * 50)
 	assert.Equal(t, сonstants.RequestStateInProgress, res.Status.State)
 	time.Sleep(time.Second * 2)
 	res, _ = mapDb.GetRequest(id)
 	assert.Equal(t, *clientRequest, *res.ClientRequest)
 	assert.Equal(t, сonstants.RequestStateDone, res.Status.State)
 }
-
 
 func Test_GetSuccessResponse(t *testing.T) {
 	id := createRequest()
@@ -174,9 +175,8 @@ func Test_GetNotReadyResponse(t *testing.T) {
 	doRequest(id)
 }
 
-
 func Test_GetAllRequests(t *testing.T) {
-	for i:=1; i<10; i++ {
+	for i := 1; i < 10; i++ {
 		createRequest()
 	}
 	req := httptest.NewRequest("GET", "/requests", nil)

@@ -5,6 +5,7 @@ import (
 	"github.com/golang_test/requester"
 	"github.com/golang_test/server"
 	"github.com/golang_test/store"
+	"github.com/golang_test/worker"
 )
 
 func main() {
@@ -14,10 +15,10 @@ func main() {
 func mainFunc() {
 	mapDb := store.NewMapDataStore()
 	r := requester.NewHTTPrequester()
-	w := handler.New(mapDb, r)
+	wr := worker.NewRequestsExecutorByChan(mapDb, r)
+	w := handler.New(mapDb, wr)
 	s := server.New()
 	s.InitHandlers(w)
-	go w.JobExecutor()
+	go wr.RequestExecuteLoop()
 	s.StartServer()
-
 }

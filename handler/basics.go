@@ -1,20 +1,17 @@
 package handler
 
 import (
-	"github.com/golang_test/requester"
 	"github.com/golang_test/store"
+	"github.com/golang_test/worker"
 	"github.com/golang_test/сonstants"
 	"github.com/labstack/echo"
 	"net/http"
 	"strconv"
 )
 
-var queue = make(chan int)
-var quit = make(chan struct{})
-
 type HandlersWrapper struct {
 	store.DataStore
-	r requester.Requester
+	worker.RequestsExecutor
 }
 
 type errorResponse struct {
@@ -83,41 +80,11 @@ func (w *HandlersWrapper) RequestFromClientHandler(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest)
 	}
 	id, _ := w.SetRequest(result)
-	w.toQueue(id)
+	w.AddRequest(id)
 	r := requestIdResponse{id}
 	return ctx.JSON(http.StatusOK, r)
 }
 
-func (w *HandlersWrapper) toQueue(id int) {
-	go func() { queue <- id }()
-}
-
-func (w *HandlersWrapper) JobExecutor() {
-	for {
-		select {
-		case id := <-queue:
-			clientRequest, err := w.ExecRequest(id)
-			if err != nil {
-				continue
-			}
-			go func(id int) {
-				resp, err := w.r.Do(clientRequest)
-				if err != nil {
-					w.SetResponse(id, resp, err)
-					return
-				}
-				w.SetResponse(id, resp, nil)
-			}(id)
-		case <-quit:
-			return
-		}
-	}
-}
-
-func (w *HandlersWrapper) StopJobExecutor() {
-	quit <- struct{}{}
-}
-
-func New(db store.DataStore, r requester.Requester) *HandlersWrapper {
-	return &HandlersWrapper{db, r}
+func New(db store.DataStore, wr worker.RequestsExecutor) *HandlersWrapper {
+	return &HandlersWrapper{db, wr}
 }
