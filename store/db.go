@@ -1,5 +1,21 @@
 package store
 
+const (
+	RequestStateNew        = "new"
+	RequestStateInProgress = "in_progress"
+	RequestStateDone       = "done"
+	RequestStateError      = "error"
+)
+
+type DataStore interface {
+	SetRequest(r *Request) (int, error)
+	Delete(id int) error
+	GetRequest(id int) (*Request, error)
+	GetAllRequests() ([]*Request, error)
+	SaveRequest(r *Request) error
+}
+
+
 type ClientRequest struct {
 	Method  string              `json:"method"`
 	URL     string              `json:"url"`
@@ -10,7 +26,7 @@ type ClientRequest struct {
 type Response struct {
 	StatusCode int                 `json:"status_code"`
 	Headers    map[string][]string `json:"headers"`
-	Body       string              `json:"body"`
+	BodyLen     int64              `json:"body_len"`
 }
 
 type Request struct {
@@ -25,16 +41,23 @@ type ExecStatus struct {
 	Err   string `json:"error"`
 }
 
-type ResponseToClient struct {
-	ID           int       `json:"id"`
-	ResponseData *Response `json:"response"`
+func (r *Request) SetStatus(s string, err string) {
+	r.Status.State = s
+	r.Status.Err = err
 }
 
-type DataStore interface {
-	SetRequest(r *ClientRequest) (int, error)
-	Delete(id int) error
-	GetRequest(id int) (*Request, error)
-	GetAllRequests() ([]*Request, error)
-	ExecRequest(id int) (*ClientRequest, error)
-	SetResponse(id int, response *Response, err error) error
+func (r *Request) IsNew() bool {
+	return r.Status.State == RequestStateNew
+}
+
+func (r *Request) IsInProgress() bool {
+	return r.Status.State == RequestStateInProgress
+}
+
+func (r *Request) IsDone() bool {
+	return r.Status.State == RequestStateDone
+}
+
+func (r *Request) IsError() bool {
+	return r.Status.State == RequestStateError
 }

@@ -79,11 +79,12 @@ func (w *HandlersWrapper) DeleteRequestForClient(ctx echo.Context) error {
 }
 
 func (w *HandlersWrapper) RequestFromClientHandler(ctx echo.Context) error {
-	result := &store.ClientRequest{}
-	if err := ctx.Bind(result); err != nil {
+	//result := &store.ClientRequest{}
+	req := &store.Request{}
+	if err := ctx.Bind(req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest)
 	}
-	id, _ := w.SetRequest(result)
+	id, _ := w.SetRequest(req)
 	w.AddRequest(id)
 	r := requestIdResponse{id}
 	return ctx.JSON(http.StatusOK, r)

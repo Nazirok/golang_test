@@ -46,12 +46,10 @@ func (r *HTTPRequester) Do(result *store.ClientRequest) (resp *store.Response, e
 		return nil, err
 	}
 	defer res.Body.Close()
-	body, _ := ioutil.ReadAll(res.Body)
-
 	resp = &store.Response{
 		Headers:    res.Header,
 		StatusCode: res.StatusCode,
-		Body:       string(body),
+		BodyLen:    res.ContentLength,
 	}
 	return resp, err
 }

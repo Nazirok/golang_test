@@ -23,18 +23,14 @@ func (db *MapDataStore) generateId() int {
 	return db.id
 }
 
-func (db *MapDataStore) setRequest(r *ClientRequest) int {
-	request := &Request{
-		ID:            db.generateId(),
-		ClientRequest: r,
-		Status:        &ExecStatus{State: сonstants.RequestStateNew},
-	}
-	db.data[request.ID] = request
-	return request.ID
+func (db *MapDataStore) setRequest(r *Request) int {
+	r.ID = db.generateId()
+	db.data[r.ID] = r
+	return r.ID
 
 }
 
-func (db *MapDataStore) SetRequest(r *ClientRequest) (int, error) {
+func (db *MapDataStore) SetRequest(r *Request) (int, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	return db.setRequest(r), nil
@@ -77,34 +73,41 @@ func (db *MapDataStore) GetAllRequests() ([]*Request, error) {
 	return out, nil
 }
 
-func (db *MapDataStore) ExecRequest(id int) (*ClientRequest, error) {
-	db.mu.Lock()
-	defer db.mu.Unlock()
-	request, ok := db.data[id]
-	if !ok {
-		return nil, errors.New(сonstants.RequestNotFound)
-	}
-	request.Status.State = сonstants.RequestStateInProgress
-	request.Status.Err = ""
-	return request.ClientRequest, nil
-}
+//func (db *MapDataStore) ExecRequest(id int) (*Request, error) {
+//	db.mu.Lock()
+//	defer db.mu.Unlock()
+//	request, ok := db.data[id]
+//	if !ok {
+//		return nil, errors.New(сonstants.RequestNotFound)
+//	}
+//	request.Status.State = сonstants.RequestStateInProgress
+//	request.Status.Err = ""
+//	return request.ClientRequest, nil
+//}
 
-func (db *MapDataStore) SetResponse(id int, response *Response, err error) error {
+func (db *MapDataStore) SaveRequest (r *Request) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
-	request, ok := db.data[id]
-	if !ok {
-		return errors.New(сonstants.RequestNotFound)
-	}
-	if err != nil {
-		request.Status.State = сonstants.RequestStateError
-		request.Status.Err = err.Error()
-	} else {
-		request.Status.State = сonstants.RequestStateDone
-	}
-	request.Response = response
+	db.data[r.ID] = r
 	return nil
 }
+
+//func (db *MapDataStore) SetResponse(id int, response *Response, err error) error {
+//	db.mu.Lock()
+//	defer db.mu.Unlock()
+//	request, ok := db.data[id]
+//	if !ok {
+//		return errors.New(сonstants.RequestNotFound)
+//	}
+//	if err != nil {
+//		request.Status.State = сonstants.RequestStateError
+//		request.Status.Err = err.Error()
+//	} else {
+//		request.Status.State = сonstants.RequestStateDone
+//	}
+//	request.Response = response
+//	return nil
+//}
 
 func (db *MapDataStore) initData() {
 	if db.data == nil {
