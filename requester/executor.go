@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"github.com/golang_test/store"
-	"io/ioutil"
 	"net/http"
 	"time"
 )

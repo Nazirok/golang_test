@@ -8,7 +8,6 @@ import (
 	"github.com/golang_test/handler"
 	"github.com/golang_test/store"
 	"github.com/golang_test/worker"
-	"github.com/golang_test/сonstants"
 	"github.com/labstack/echo"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
@@ -46,7 +45,7 @@ func (r *testRequester) Do(result *store.ClientRequest) (resp *store.Response, e
 }
 
 func TestMain(m *testing.M) {
-	go wr.RequestExecuteLoop()
+	go wr.RequestsExecuteLoop()
 	s.InitHandlers(w)
 	os.Exit(m.Run())
 }

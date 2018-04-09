@@ -5,16 +5,16 @@ const (
 	RequestStateInProgress = "in_progress"
 	RequestStateDone       = "done"
 	RequestStateError      = "error"
+	RequestNotFound        = "request.not.found"
 )
 
 type DataStore interface {
 	SetRequest(r *Request) (int, error)
-	Delete(id int) error
+	Delete(id int) (*Request, error)
 	GetRequest(id int) (*Request, error)
 	GetAllRequests() ([]*Request, error)
 	SaveRequest(r *Request) error
 }
-
 
 type ClientRequest struct {
 	Method  string              `json:"method"`
@@ -26,7 +26,7 @@ type ClientRequest struct {
 type Response struct {
 	StatusCode int                 `json:"status_code"`
 	Headers    map[string][]string `json:"headers"`
-	BodyLen     int64              `json:"body_len"`
+	BodyLen    int64               `json:"body_len"`
 }
 
 type Request struct {

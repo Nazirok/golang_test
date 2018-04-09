@@ -19,6 +19,6 @@ func mainFunc() {
 	w := handler.New(mapDb, wr)
 	s := server.New()
 	s.InitHandlers(w)
-	go wr.RequestExecuteLoop()
+	go wr.RequestsExecuteLoop()
 	s.StartServer()
 }

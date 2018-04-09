@@ -3,7 +3,6 @@ package handler
 import (
 	"github.com/golang_test/store"
 	"github.com/golang_test/worker"
-	"github.com/golang_test/сonstants"
 	"github.com/labstack/echo"
 	"net/http"
 	"strconv"
@@ -46,23 +45,21 @@ func (w *HandlersWrapper) RequestForClientById(ctx echo.Context) error {
 	//метод выдает информацию по просьбе по id
 	item := ctx.Param("id")
 	tempid, _ := strconv.Atoi(item)
-	request, err := w.GetRequest(tempid)
+	req, err := w.GetRequest(tempid)
 	if err != nil {
 		e := errorResponse{err.Error()}
 		return ctx.JSON(http.StatusInternalServerError, e)
 	}
-	if request == nil {
-		e := errorResponse{сonstants.RequestNotFound}
+	if req == nil {
+		e := errorResponse{store.RequestNotFound}
 		return ctx.JSON(http.StatusNotFound, e)
 	}
 
-	switch request.Status.State {
-	case сonstants.RequestStateNew, сonstants.RequestStateInProgress:
-		s := stateResponse{сonstants.RequestStateInProgress}
+	if req.IsNew() || req.IsInProgress() {
+		s := stateResponse{store.RequestStateInProgress}
 		return ctx.JSON(http.StatusAccepted, s)
-
-	case сonstants.RequestStateDone, сonstants.RequestStateError:
-		return ctx.JSON(http.StatusOK, request)
+	} else {
+		return ctx.JSON(http.StatusOK, req)
 	}
 	return nil
 }
@@ -71,20 +68,32 @@ func (w *HandlersWrapper) DeleteRequestForClient(ctx echo.Context) error {
 	// функция для удаления просьбы
 	item := ctx.Param("id")
 	tempid, _ := strconv.Atoi(item)
-	if err := w.Delete(tempid); err != nil {
+	req, err := w.Delete(tempid)
+	if err != nil {
 		e := errorResponse{err.Error()}
 		return ctx.JSON(http.StatusInternalServerError, e)
 	}
-	return ctx.JSON(http.StatusOK, "OK")
+	if req == nil {
+		e := errorResponse{store.RequestNotFound}
+		return ctx.JSON(http.StatusNotFound, e)
+	}
+	return ctx.JSON(http.StatusOK, req)
 }
 
 func (w *HandlersWrapper) RequestFromClientHandler(ctx echo.Context) error {
-	//result := &store.ClientRequest{}
-	req := &store.Request{}
-	if err := ctx.Bind(req); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest)
+	req := &store.Request{
+		ClientRequest: &store.ClientRequest{},
+		Status:        &store.ExecStatus{State: store.RequestStateNew, Err: ""},
 	}
-	id, _ := w.SetRequest(req)
+	if err := ctx.Bind(req.ClientRequest); err != nil {
+		e := errorResponse{err.Error()}
+		return ctx.JSON(http.StatusBadRequest, e)
+	}
+	id, err := w.SetRequest(req)
+	if err != nil {
+		e := errorResponse{err.Error()}
+		return ctx.JSON(http.StatusInternalServerError, e)
+	}
 	w.AddRequest(id)
 	r := requestIdResponse{id}
 	return ctx.JSON(http.StatusOK, r)

@@ -3,20 +3,22 @@ package worker
 import (
 	"github.com/golang_test/requester"
 	"github.com/golang_test/store"
+	"sync"
 )
 
-const gorutinesCount = 100
+const requestsExecutorCount = 100
+
+var wg sync.WaitGroup
 
 type RequestsExecutor interface {
-	RequestExecuteLoop()
-	StopRequestExecuteLoop()
+	RequestsExecuteLoop()
+	StopRequestsExecuteLoop()
 	AddRequest(id int)
 }
 
 type RequestsExecutorByChan struct {
 	requestQueue chan int
 	quitExecute  chan struct{}
-	//sema         chan struct{} // ограничитель количества потоков
 	r            requester.Requester
 	db           store.DataStore
 }
@@ -25,19 +27,22 @@ func NewRequestsExecutorByChan(db store.DataStore, r requester.Requester) *Reque
 	return &RequestsExecutorByChan{
 		make(chan int),
 		make(chan struct{}),
-		//make(chan struct{}, 1000),
 		r,
 		db,
 	}
 }
 
-
-func (e *RequestsExecutorByChan) RequestExecuteLoop() {
-	for i:=1; i<gorutinesCount; i++ {
-		go func() {
+func (e *RequestsExecutorByChan) RequestsExecuteLoop() {
+	wg.Add(requestsExecutorCount)
+	for i := 1; i <= requestsExecutorCount; i++ {
+		go func(wg *sync.WaitGroup) {
+			defer wg.Done()
 			for {
 				select {
-				case id := <-e.requestQueue:
+				case id, ok := <-e.requestQueue:
+					if !ok {
+						continue
+					}
 					req, err := e.db.GetRequest(id)
 					if err != nil {
 						continue
@@ -47,48 +52,22 @@ func (e *RequestsExecutorByChan) RequestExecuteLoop() {
 					resp, err := e.r.Do(req.ClientRequest)
 					if err != nil {
 						req.SetStatus(store.RequestStateError, err.Error())
+					} else {
+						req.SetStatus(store.RequestStateDone, "")
 					}
-					req.SetStatus(store.RequestStateDone, "")
 					req.Response = resp
 					e.db.SaveRequest(req)
 				case <-e.quitExecute:
 					return
 				}
 			}
-		}()
+		}(&wg)
 	}
+	wg.Wait()
 }
 
-//func (e *RequestsExecutorByChan) RequestExecuteLoop() {
-//	for {
-//		select {
-//		case id := <-e.requestQueue:
-//			req, err := e.db.GetRequest(id)
-//			if err != nil {
-//				continue
-//			}
-//			//clientRequest, err := e.db.ExecRequest(id)
-//			//if err != nil {
-//			//	continue
-//			//}
-//			e.sema <- struct{}{}
-//			go func(id int) {
-//				defer func() { <-e.sema }()
-//				resp, err := e.r.Do(clientRequest)
-//				if err != nil {
-//					e.db.SetResponse(id, resp, err)
-//					return
-//				}
-//				e.db.SetResponse(id, resp, nil)
-//			}(id)
-//		case <-e.quitExecute:
-//			return
-//		}
-//	}
-//}
-
-func (e *RequestsExecutorByChan) StopRequestExecuteLoop() {
-	for i:=1; i<gorutinesCount; i++ {
+func (e *RequestsExecutorByChan) StopRequestsExecuteLoop() {
+	for i := 1; i <= requestsExecutorCount; i++ {
 		e.quitExecute <- struct{}{}
 	}
 }

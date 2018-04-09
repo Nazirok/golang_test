@@ -1,8 +1,6 @@
 package store
 
 import (
-	"errors"
-	"github.com/golang_test/сonstants"
 	"sync"
 )
 
@@ -37,11 +35,11 @@ func (db *MapDataStore) SetRequest(r *Request) (int, error) {
 }
 
 func (db *MapDataStore) getRequest(id int) (*Request, error) {
-	item, ok := db.data[id]
+	req, ok := db.data[id]
 	if !ok {
-		return nil, errors.New(сonstants.RequestNotFound)
+		return nil, nil
 	}
-	return item, nil
+	return req, nil
 }
 
 func (db *MapDataStore) GetRequest(id int) (*Request, error) {
@@ -50,17 +48,15 @@ func (db *MapDataStore) GetRequest(id int) (*Request, error) {
 	return db.getRequest(id)
 }
 
-func (db *MapDataStore) Delete(key int) error {
+func (db *MapDataStore) Delete(id int) (*Request, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
-	if _, ok := db.data[key]; !ok {
-		return errors.New(сonstants.RequestNotFound)
+	req, ok := db.data[id]
+	if !ok {
+		return nil, nil
 	}
-	delete(db.data, key)
-	if _, ok := db.data[key]; ok {
-		return errors.New(сonstants.RequestNotDeleted)
-	}
-	return nil
+	delete(db.data, id)
+	return req, nil
 }
 
 func (db *MapDataStore) GetAllRequests() ([]*Request, error) {
@@ -73,41 +69,12 @@ func (db *MapDataStore) GetAllRequests() ([]*Request, error) {
 	return out, nil
 }
 
-//func (db *MapDataStore) ExecRequest(id int) (*Request, error) {
-//	db.mu.Lock()
-//	defer db.mu.Unlock()
-//	request, ok := db.data[id]
-//	if !ok {
-//		return nil, errors.New(сonstants.RequestNotFound)
-//	}
-//	request.Status.State = сonstants.RequestStateInProgress
-//	request.Status.Err = ""
-//	return request.ClientRequest, nil
-//}
-
-func (db *MapDataStore) SaveRequest (r *Request) error {
+func (db *MapDataStore) SaveRequest(r *Request) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	db.data[r.ID] = r
 	return nil
 }
-
-//func (db *MapDataStore) SetResponse(id int, response *Response, err error) error {
-//	db.mu.Lock()
-//	defer db.mu.Unlock()
-//	request, ok := db.data[id]
-//	if !ok {
-//		return errors.New(сonstants.RequestNotFound)
-//	}
-//	if err != nil {
-//		request.Status.State = сonstants.RequestStateError
-//		request.Status.Err = err.Error()
-//	} else {
-//		request.Status.State = сonstants.RequestStateDone
-//	}
-//	request.Response = response
-//	return nil
-//}
 
 func (db *MapDataStore) initData() {
 	if db.data == nil {
