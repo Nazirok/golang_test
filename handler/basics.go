@@ -68,6 +68,13 @@ func (w *HandlersWrapper) DeleteRequestForClient(ctx echo.Context) error {
 	// функция для удаления просьбы
 	item := ctx.Param("id")
 	tempid, _ := strconv.Atoi(item)
+	req, _ := w.GetRequest(tempid)
+	if req != nil {
+		if req.IsInProgress() {
+			s := stateResponse{store.RequestStateInProgress}
+			return ctx.JSON(http.StatusAccepted, s)
+		}
+	}
 	req, err := w.Delete(tempid)
 	if err != nil {
 		e := errorResponse{err.Error()}

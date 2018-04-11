@@ -6,7 +6,7 @@ import (
 	"sync"
 )
 
-const requestsExecutorCount = 100
+const requestsExecutorCount = 1000
 
 var wg sync.WaitGroup
 
@@ -44,7 +44,7 @@ func (e *RequestsExecutorByChan) RequestsExecuteLoop() {
 						continue
 					}
 					req, err := e.db.GetRequest(id)
-					if err != nil {
+					if err != nil || req == nil {
 						continue
 					}
 					req.SetStatus(store.RequestStateInProgress, "")
