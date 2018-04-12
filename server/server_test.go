@@ -11,7 +11,6 @@ import (
 	"time"
 	"github.com/stretchr/testify/require"
 	"github.com/gavv/httpexpect"
-	"github.com/stretchr/testify/assert"
 )
 
 var s = New()
@@ -58,10 +57,11 @@ func Test_ExecNewRequest(t *testing.T) {
 	obj.Value("requestId").NotEqual(nil)
 	raw := obj.Value("requestId").Raw()
 	time.Sleep(time.Millisecond * 50)
+	// Request must be transited to state 'done' by worker after ~ 50 milliseconds
 	res, err := mapDb.GetRequest(int(raw.(float64)))
 	require.NoError(t, err)
-	assert.Equal(t, *clientRequest, *res.ClientRequest)
-	assert.Equal(t, store.RequestStateDone, res.Status.State)
+	require.Equal(t, *clientRequest, *res.ClientRequest)
+	require.Equal(t, store.RequestStateDone, res.Status.State)
 }
 
 func Test_ExecNewLongRequest(t *testing.T) {
@@ -80,13 +80,15 @@ func Test_ExecNewLongRequest(t *testing.T) {
 	time.Sleep(time.Millisecond * 50)
 	res, err := mapDb.GetRequest(id)
 	require.NoError(t, err)
-	assert.Equal(t, *clientRequest, *res.ClientRequest)
+	require.Equal(t, *clientRequest, *res.ClientRequest)
 	time.Sleep(time.Millisecond * 50)
-	assert.Equal(t, store.RequestStateInProgress, res.Status.State)
+	// Request must be transited to state 'in_progress' by worker after ~ 50 milliseconds
+	require.Equal(t, store.RequestStateInProgress, res.Status.State)
 	time.Sleep(time.Second * 2)
+	// Request must be transited to state 'done' by worker after 2 seconds
 	res, _ = mapDb.GetRequest(id)
-	assert.Equal(t, *clientRequest, *res.ClientRequest)
-	assert.Equal(t, store.RequestStateDone, res.Status.State)
+	require.Equal(t, *clientRequest, *res.ClientRequest)
+	require.Equal(t, store.RequestStateDone, res.Status.State)
 }
 
 
@@ -159,8 +161,10 @@ func Test_GetNotReadyResponse(t *testing.T) {
 			JSON().Object()
 		obj.ValueEqual("state", store.RequestStateInProgress)
 	}
+	// If state is "new" must return message: "in_progress"
 	doRequestHelper()
 	req.Status = &store.ExecStatus{State: store.RequestStateInProgress, Err: ""}
+	// If state is "in_progress" must return message: "in_progress"
 	doRequestHelper()
 }
 
@@ -202,4 +206,17 @@ func Test_DeleteNotExistedRequest(t *testing.T) {
 		Status(http.StatusNotFound).
 		JSON().Object()
 	obj.Value("error").Equal(store.RequestNotFound)
+}
+
+func Test_DeleteInProgressRequest(t *testing.T) {
+	id := createRequest()
+	req, err := mapDb.GetRequest(id)
+	require.NoError(t, err)
+	req.Status = &store.ExecStatus{State: store.RequestStateInProgress, Err: ""}
+	mapDb.SaveRequest(req)
+	obj := tester(t).DELETE("/requests/{ID}", req.ID).
+		Expect().
+		Status(http.StatusAccepted).
+		JSON().Object()
+	obj.ValueEqual("state", store.RequestStateInProgress)
 }
