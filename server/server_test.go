@@ -1,22 +1,15 @@
 package server
 
 import (
-	//"bytes"
-	//"encoding/json"
 	"errors"
 	"github.com/golang_test/handler"
 	"github.com/golang_test/store"
 	"github.com/golang_test/worker"
-	//"github.com/stretchr/testify/assert"
-	//"io/ioutil"
 	"net/http"
-	//"net/http/httptest"
 	"os"
 	"testing"
 	"time"
 	"github.com/stretchr/testify/require"
-	//"github.com/labstack/echo"
-	//"fmt"
 	"github.com/gavv/httpexpect"
 	"github.com/stretchr/testify/assert"
 )
@@ -53,25 +46,6 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-//func doJSONRequest(t *testing.T, method, url string, requestBody interface{}, expectedHttpStatus int, response interface{}) {
-//	var data []byte
-//	if requestBody != nil {
-//		var err error
-//		data, err = json.Marshal(requestBody)
-//		require.NoError(t, err)
-//	}
-//	req := httptest.NewRequest(method, url, bytes.NewReader(data))
-//	req.Header.Set("Content-Type", "application/json")
-//	rec := httptest.NewRecorder()
-//	s.e.ServeHTTP(rec, req)
-//	assert.Equal(t, expectedHttpStatus, rec.Code, "Bad status code")
-//	body, err := ioutil.ReadAll(rec.Body)
-//	require.NoError(t, err)
-//	e := json.Unmarshal(body, &response)
-//	require.NoError(t, e)
-//}
-//
-//
 func Test_ExecNewRequest(t *testing.T) {
 	clientRequest := &store.ClientRequest{
 		Method: "GET", URL: "Some url", Body: "body", Headers: map[string][]string{"header": []string{"a", "bv"}},
