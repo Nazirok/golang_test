@@ -3,7 +3,7 @@ package server
 import (
 	//"bytes"
 	//"encoding/json"
-	//"errors"
+	"errors"
 	"github.com/golang_test/handler"
 	"github.com/golang_test/store"
 	"github.com/golang_test/worker"
@@ -18,6 +18,7 @@ import (
 	//"github.com/labstack/echo"
 	//"fmt"
 	"github.com/gavv/httpexpect"
+	"github.com/stretchr/testify/assert"
 )
 
 var s = New()
@@ -71,47 +72,49 @@ func TestMain(m *testing.M) {
 //}
 //
 //
-//func Test_ExecNewRequest(t *testing.T) {
-//	clientRequest := &store.ClientRequest{
-//		Method: "GET", URL: "Some url", Body: "body", Headers: map[string][]string{"header": []string{"a", "bv"}},
-//	}
-//	r := struct {
-//		RequestId int `json:"requestId"`
-//	}{}
-//	doJSONRequest(t, echo.POST, "/requests", clientRequest, http.StatusOK, &r)
-//	time.Sleep(time.Millisecond * 50)
-//	res, err := mapDb.GetRequest(r.RequestId)
-//	require.NoError(t, err)
-//	assert.Equal(t, *clientRequest, *res.ClientRequest)
-//	assert.Equal(t, store.RequestStateDone, res.Status.State)
-//}
-//
-//func Test_ExecNewLongRequest(t *testing.T) {
-//	requester.SetDelay(1 * time.Second)
-//	clientRequest := &store.ClientRequest{
-//		Method: "GET", URL: "Some url", Body: "body", Headers: map[string][]string{"header": []string{"a", "bv"}},
-//	}
-//	r := struct {
-//		RequestId int `json:"requestId"`
-//	}{}
-//	doJSONRequest(t, echo.POST, "/requests", clientRequest, http.StatusOK, &r)
-//	res, err := mapDb.GetRequest(r.RequestId)
-//	require.NoError(t, err)
-//	assert.Equal(t, *clientRequest, *res.ClientRequest)
-//	time.Sleep(time.Millisecond * 50)
-//	assert.Equal(t, store.RequestStateInProgress, res.Status.State)
-//	time.Sleep(time.Second * 2)
-//	res, _ = mapDb.GetRequest(r.RequestId)
-//	assert.Equal(t, *clientRequest, *res.ClientRequest)
-//	assert.Equal(t, store.RequestStateDone, res.Status.State)
-//}
+func Test_ExecNewRequest(t *testing.T) {
+	clientRequest := &store.ClientRequest{
+		Method: "GET", URL: "Some url", Body: "body", Headers: map[string][]string{"header": []string{"a", "bv"}},
+	}
+	obj := tester(t).POST("/requests").
+		WithJSON(clientRequest).
+		Expect().
+		Status(http.StatusOK).
+		JSON().Object()
+	obj.Value("requestId").NotEqual(nil)
+	raw := obj.Value("requestId").Raw()
+	time.Sleep(time.Millisecond * 50)
+	res, err := mapDb.GetRequest(int(raw.(float64)))
+	require.NoError(t, err)
+	assert.Equal(t, *clientRequest, *res.ClientRequest)
+	assert.Equal(t, store.RequestStateDone, res.Status.State)
+}
 
-//func EchoHandler() http.Handler {
-//	fmt.Println("Handler")
-//	//s.e.GET("/requests", w.RequestsForClient)
-//	s.e.GET("/requests/:id", w.RequestForClientById)
-//	return s.e
-//}
+func Test_ExecNewLongRequest(t *testing.T) {
+	requester.SetDelay(1 * time.Second)
+	clientRequest := &store.ClientRequest{
+		Method: "GET", URL: "Some url", Body: "body", Headers: map[string][]string{"header": []string{"a", "bv"}},
+	}
+	obj := tester(t).POST("/requests").
+		WithJSON(clientRequest).
+		Expect().
+		Status(http.StatusOK).
+		JSON().Object()
+	obj.Value("requestId").NotEqual(nil)
+	raw := obj.Value("requestId").Raw()
+	id := int(raw.(float64))
+	time.Sleep(time.Millisecond * 50)
+	res, err := mapDb.GetRequest(id)
+	require.NoError(t, err)
+	assert.Equal(t, *clientRequest, *res.ClientRequest)
+	time.Sleep(time.Millisecond * 50)
+	assert.Equal(t, store.RequestStateInProgress, res.Status.State)
+	time.Sleep(time.Second * 2)
+	res, _ = mapDb.GetRequest(id)
+	assert.Equal(t, *clientRequest, *res.ClientRequest)
+	assert.Equal(t, store.RequestStateDone, res.Status.State)
+}
+
 
 func tester(t *testing.T) *httpexpect.Expect {
 	return httpexpect.WithConfig(httpexpect.Config{
@@ -120,7 +123,8 @@ func tester(t *testing.T) *httpexpect.Expect {
 			Jar:       httpexpect.NewJar(),
 		},
 		Reporter: httpexpect.NewAssertReporter(t),
-		Printers: []httpexpect.Printer{httpexpect.NewCompactPrinter(t),
+		Printers: []httpexpect.Printer{
+			httpexpect.NewDebugPrinter(t, true),
 		},
 	})
 }
@@ -139,83 +143,89 @@ func Test_GetSuccessResponse(t *testing.T) {
 		Status(http.StatusOK).
 		JSON().Object()
 	obj.Value("response").Equal(resp)
+	obj.Value("status").Object().ValueEqual("state", store.RequestStateDone)
 }
 
-//func Test_GetNotExistedResponse(t *testing.T) {
-//	url := fmt.Sprintf("/requests/%d", 34568365)
-//	doJSONRequest(t, echo.GET, url, nil, http.StatusNotFound, nil)
-//}
-//
-//func Test_GetErrorResponse(t *testing.T) {
-//	id := createRequest()
-//	req, err := mapDb.GetRequest(id)
-//	require.NoError(t, err)
-//	resp := &store.Response{StatusCode: 200, BodyLen: 4}
-//	req.Response = resp
-//	req.ClientRequest =  &store.ClientRequest{}
-//	req.Status = &store.ExecStatus{State: store.RequestStateError, Err: errors.New("error.during.request").Error()}
-//	mapDb.SaveRequest(req)
-//	response := store.Request{}
-//	url := fmt.Sprintf("/requests/%d", id)
-//	doJSONRequest(t, echo.GET, url, nil, http.StatusOK, &response)
-//	assert.Equal(t, store.RequestStateError, response.Status.State, "Bad state of response")
-//	assert.Equal(t, "error.during.request", response.Status.Err)
-//}
-//
-//func Test_GetNotReadyResponse(t *testing.T) {
-//	id := createRequest()
-//	req, err := mapDb.GetRequest(id)
-//	req.Status = &store.ExecStatus{State: store.RequestStateNew, Err: ""}
-//	require.NoError(t, err)
-//	mapDb.SaveRequest(req)
-//	r := struct {
-//		State string `json:"state"`
-//	}{}
-//	doRequestHelper := func(){
-//		url := fmt.Sprintf("/requests/%d", id)
-//		doJSONRequest(t, echo.GET, url, nil, http.StatusAccepted, &r)
-//		assert.Equal(t, store.RequestStateInProgress, r.State, "Bad state in response")
-//	}
-//	doRequestHelper()
-//	req.Status = &store.ExecStatus{State: store.RequestStateInProgress, Err: ""}
-//	doRequestHelper()
-//}
-//
-//func Test_GetAllRequests(t *testing.T) {
-//	for i := 1; i < 10; i++ {
-//		id := createRequest()
-//		req, err := mapDb.GetRequest(id)
-//		require.NoError(t, err)
-//		req.Status = &store.ExecStatus{State: store.RequestStateNew, Err: ""}
-//		mapDb.SaveRequest(req)
-//	}
-//	requests := struct {
-//		Data []*store.Request `json:"clientRequests"`
-//	}{}
-//	doJSONRequest(t, echo.GET, "/requests", nil, http.StatusOK, &requests)
-//	var g = assert.Comparison(func() (success bool) {
-//		return len(requests.Data) >= 10
-//	})
-//	assert.Condition(t, g, "Bad len of response")
-//}
-//
-//func Test_DeleteRequest(t *testing.T) {
-//	id := createRequest()
-//	req, err := mapDb.GetRequest(id)
-//	require.NoError(t, err)
-//	req.Status = &store.ExecStatus{State: store.RequestStateNew, Err: ""}
-//	mapDb.SaveRequest(req)
-//	response := store.Request{}
-//	url := fmt.Sprintf("/requests/%d", id)
-//	doJSONRequest(t, echo.DELETE, url, nil, http.StatusOK, &response)
-//	assert.Equal(t, *req, response)
-//	req, _ = mapDb.GetRequest(id)
-//	if req != nil {
-//		t.Error("req must be nil")
-//	}
-//}
-//
-//func Test_DeleteNotExistedRequest(t *testing.T) {
-//	url := fmt.Sprintf("/requests/%d", 34568365)
-//	doJSONRequest(t, echo.DELETE, url, nil, http.StatusNotFound, nil)
-//}
+func Test_GetNotExistedResponse(t *testing.T) {
+	obj := tester(t).GET("/requests/{ID}", 12127).
+		Expect().
+		Status(http.StatusNotFound).
+		JSON().Object()
+	obj.Value("error").Equal(store.RequestNotFound)
+}
+
+func Test_GetErrorResponse(t *testing.T) {
+	id := createRequest()
+	req, err := mapDb.GetRequest(id)
+	require.NoError(t, err)
+	resp := &store.Response{StatusCode: 200, BodyLen: 4}
+	req.Response = resp
+	req.ClientRequest =  &store.ClientRequest{}
+	req.Status = &store.ExecStatus{State: store.RequestStateError, Err: errors.New("error.during.request").Error()}
+	mapDb.SaveRequest(req)
+	obj := tester(t).GET("/requests/{ID}", req.ID).
+		Expect().
+		Status(http.StatusOK).
+		JSON().Object()
+	obj.Value("status").Object().ValueEqual("state", store.RequestStateError)
+	obj.Value("status").Object().ValueEqual("error", "error.during.request")
+	obj.Value("response").Equal(resp)
+}
+
+func Test_GetNotReadyResponse(t *testing.T) {
+	id := createRequest()
+	req, err := mapDb.GetRequest(id)
+	req.Status = &store.ExecStatus{State: store.RequestStateNew, Err: ""}
+	require.NoError(t, err)
+	mapDb.SaveRequest(req)
+	doRequestHelper := func() {
+		obj := tester(t).GET("/requests/{ID}", req.ID).
+			Expect().
+			Status(http.StatusAccepted).
+			JSON().Object()
+		obj.ValueEqual("state", store.RequestStateInProgress)
+	}
+	doRequestHelper()
+	req.Status = &store.ExecStatus{State: store.RequestStateInProgress, Err: ""}
+	doRequestHelper()
+}
+
+func Test_GetAllRequests(t *testing.T) {
+	for i := 1; i < 10; i++ {
+		id := createRequest()
+		req, err := mapDb.GetRequest(id)
+		require.NoError(t, err)
+		req.Status = &store.ExecStatus{State: store.RequestStateNew, Err: ""}
+		mapDb.SaveRequest(req)
+	}
+	obj := tester(t).GET("/requests").
+		Expect().
+		Status(http.StatusOK).
+		JSON().Object()
+	obj.Value("clientRequests").Array().Length().Ge(10)
+}
+
+func Test_DeleteRequest(t *testing.T) {
+	id := createRequest()
+	req, err := mapDb.GetRequest(id)
+	require.NoError(t, err)
+	req.Status = &store.ExecStatus{State: store.RequestStateNew, Err: ""}
+	mapDb.SaveRequest(req)
+	requestHelper := func(status int) *httpexpect.Value {
+		obj := tester(t).DELETE("/requests/{ID}", req.ID).
+			Expect().
+			Status(status).
+			JSON()
+		return obj
+	}
+	requestHelper(http.StatusOK).Equal(req)
+	requestHelper(http.StatusNotFound).Object().Value("error").Equal(store.RequestNotFound)
+}
+
+func Test_DeleteNotExistedRequest(t *testing.T) {
+	obj := tester(t).DELETE("/requests/{ID}", 12127).
+		Expect().
+		Status(http.StatusNotFound).
+		JSON().Object()
+	obj.Value("error").Equal(store.RequestNotFound)
+}
